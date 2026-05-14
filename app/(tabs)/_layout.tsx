@@ -49,6 +49,15 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="conditions"
+        options={{
+          title: 'Conditions',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="weather-partly-cloudy" color={color} size={size} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

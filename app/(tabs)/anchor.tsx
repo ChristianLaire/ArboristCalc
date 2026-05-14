@@ -7,6 +7,7 @@ import ResultCard from '@/components/ResultCard';
 import SafetyBadge from '@/components/SafetyBadge';
 import { SPECIES, Species, Category, getByCategory } from '@/data/species';
 import { calcAnchor, DecayLevel, SafetyFactor } from '@/math/anchor';
+import { frozenWoodFactor, frozenWoodLabel } from '@/math/environmental';
 
 const DECAY_OPTIONS: { label: string; value: DecayLevel }[] = [
   { label: 'None', value: 'none' },
@@ -27,6 +28,7 @@ export default function AnchorScreen() {
   const [species, setSpecies] = useState<Species>(SPECIES[0]);
   const [decay, setDecay] = useState<DecayLevel>('none');
   const [sf, setSf] = useState<SafetyFactor>('rigging');
+  const [tempF, setTempF] = useState('');
   const [imported, setImported] = useState(false);
 
   const filteredSpecies = getByCategory(category);
@@ -41,6 +43,10 @@ export default function AnchorScreen() {
     });
   }, []);
 
+  const temp = parseFloat(tempF);
+  const tempFactor = !isNaN(temp) ? frozenWoodFactor(temp) : 1.0;
+  const adjustedMor = Math.round(species.morPsi * tempFactor);
+
   const result = (() => {
     try {
       const l = parseFloat(load);
@@ -49,7 +55,7 @@ export default function AnchorScreen() {
       if (!l || !arm || !dia) return null;
       return calcAnchor({
         loadLbs: l, momentArmFt: arm, actualDiameterIn: dia,
-        morPsi: species.morPsi, decay, safetyFactor: sf,
+        morPsi: adjustedMor, decay, safetyFactor: sf,
       });
     } catch { return null; }
   })();
@@ -65,6 +71,16 @@ export default function AnchorScreen() {
       <NumericInput label="Applied Load" unit="lbs" value={load} onChangeText={setLoad} />
       <NumericInput label="Moment Arm" unit="ft" value={momentArm} onChangeText={setMomentArm} placeholder="1.0" />
       <NumericInput label="Actual Stem Diameter" unit="in" value={actualDiameter} onChangeText={setActualDiameter} />
+
+      <Text style={styles.sectionLabel}>Air Temperature (optional)</Text>
+      <NumericInput label="Temperature" unit="°F" value={tempF} onChangeText={setTempF} placeholder="Leave blank if above freezing" />
+      {!isNaN(temp) && tempF !== '' && (
+        <View style={[styles.noteBox, temp < 33 && styles.noteBoxFrozen]}>
+          <Text style={[styles.noteText, temp < 33 && styles.noteTextFrozen]}>
+            {frozenWoodLabel(temp)} — MOR adjusted to {adjustedMor.toLocaleString()} psi
+          </Text>
+        </View>
+      )}
 
       <Text style={styles.sectionLabel}>Species (for MOR)</Text>
       <SegmentedButtons
@@ -114,7 +130,7 @@ export default function AnchorScreen() {
               { label: 'Required Diameter', value: `${result.requiredDiameterIn.toFixed(2)} in` },
               { label: 'Effective Diameter', value: `${result.effectiveDiameterIn.toFixed(2)} in` },
               { label: 'Ratio (actual/required)', value: `${result.ratio.toFixed(2)}×` },
-              { label: 'Species MOR (green)', value: `${species.morPsi.toLocaleString()} psi` },
+              { label: 'MOR used', value: `${adjustedMor.toLocaleString()} psi${tempFactor > 1 ? ` (×${tempFactor.toFixed(2)} frozen)` : ''}` },
               { label: 'Safety Factor', value: sf === 'rigging' ? '3.0×' : '5.0×' },
             ]}
           />
@@ -146,5 +162,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f8e9', borderRadius: 8, padding: 10,
     marginBottom: 4, borderLeftWidth: 3, borderLeftColor: '#2e7d32',
   },
+  noteBoxFrozen: { backgroundColor: '#e3f2fd', borderLeftColor: '#1565c0' },
   noteText: { fontSize: 12, color: '#33691e', lineHeight: 18 },
+  noteTextFrozen: { color: '#1565c0' },
 });

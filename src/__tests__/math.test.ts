@@ -1,4 +1,5 @@
 import { calcLogWeight } from '../math/weight';
+import { calcHeatIndex, assessHeat, frozenWoodFactor, leafWeightLbs, calcDaylight, dayOfYear } from '../math/environmental';
 import { calcRigging } from '../math/rigging';
 import { calcSlingTension, calcMechanicalAdvantage } from '../math/tension';
 import { calcAnchor } from '../math/anchor';
@@ -22,6 +23,45 @@ describe('species database', () => {
   test('getByCategory returns only softwoods', () => {
     const sw = getByCategory('Softwood');
     expect(sw.every(s => s.category === 'Softwood')).toBe(true);
+  });
+});
+
+// --- Environmental ---
+describe('environmental', () => {
+  test('heat index < 80°F returns raw temp', () => {
+    expect(calcHeatIndex(75, 50)).toBe(75);
+  });
+  test('heat index at 90°F / 90% RH exceeds 100°F', () => {
+    expect(calcHeatIndex(90, 90)).toBeGreaterThan(100);
+  });
+  test('assessHeat level = red at HI > 103', () => {
+    const r = assessHeat(100, 95);
+    expect(r.level).toBe('red');
+  });
+  test('frozen wood factor above 33°F = 1.0', () => {
+    expect(frozenWoodFactor(50)).toBe(1.0);
+  });
+  test('frozen wood factor at 0°F = 1.4', () => {
+    expect(frozenWoodFactor(0)).toBe(1.40);
+  });
+  test('frozen wood factor at -30°F = 1.8', () => {
+    expect(frozenWoodFactor(-30)).toBe(1.80);
+  });
+  test('leaf weight ~1.3% of tree weight for deciduous in leaf', () => {
+    const lw = leafWeightLbs(10000, true, true);
+    expect(lw).toBeCloseTo(130, 0);
+  });
+  test('leaf weight = 0 when dormant', () => {
+    expect(leafWeightLbs(10000, true, false)).toBe(0);
+  });
+  test('daylight hours at equator on equinox ≈ 12', () => {
+    const r = calcDaylight(0, dayOfYear(3, 21));
+    expect(r.daylightHours).toBeCloseTo(12, 0);
+  });
+  test('Seattle in June has more daylight than December', () => {
+    const june = calcDaylight(47.6, dayOfYear(6, 21));
+    const dec  = calcDaylight(47.6, dayOfYear(12, 21));
+    expect(june.daylightHours).toBeGreaterThan(dec.daylightHours);
   });
 });
 

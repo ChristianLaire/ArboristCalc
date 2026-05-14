@@ -7,6 +7,7 @@ import ResultCard from '@/components/ResultCard';
 import SafetyBadge from '@/components/SafetyBadge';
 import { SPECIES, Species, Condition, Category, getByCategory } from '@/data/species';
 import { calcLogWeight } from '@/math/weight';
+import { leafWeightLbs } from '@/math/environmental';
 
 const CONDITIONS: { label: string; value: Condition }[] = [
   { label: 'Green', value: 'green' },
@@ -28,6 +29,7 @@ export default function WeightScreen() {
   // tree mode
   const [dbh, setDbh] = useState('');
   const [height, setHeight] = useState('');
+  const [inLeaf, setInLeaf] = useState(true);
 
   const filteredSpecies = getByCategory(category);
 
@@ -113,27 +115,45 @@ export default function WeightScreen() {
         <>
           <NumericInput label="DBH (Diameter at Breast Height)" unit="in" value={dbh} onChangeText={setDbh} />
           <NumericInput label="Tree Height" unit="ft" value={height} onChangeText={setHeight} />
+          <Text style={styles.sectionLabel}>Leaf/Needle Status</Text>
+          <SegmentedButtons
+            value={inLeaf ? 'yes' : 'no'}
+            onValueChange={v => setInLeaf(v === 'yes')}
+            buttons={[
+              { value: 'yes', label: species.category === 'Softwood' ? 'Has Needles' : 'In Leaf' },
+              { value: 'no',  label: species.category === 'Softwood' ? 'No Needles'  : 'Dormant' },
+            ]}
+            style={styles.segment}
+          />
         </>
       )}
 
-      {result && (
-        <>
-          <ResultCard
-            title="Weight Estimate"
-            rows={[
-              { label: 'Volume', value: `${result.volumeFt3.toFixed(2)} ft³` },
-              { label: 'Estimated Weight', value: `${result.weightLbs.toFixed(0)} lbs` },
-              { label: 'Species', value: species.name },
-              { label: 'Density', value: `${species.greenLbsPerFt3} lbs/ft³ (green)` },
-              { label: 'Condition', value: CONDITIONS.find(c => c.value === condition)?.label ?? '' },
-            ]}
-          />
-          <SafetyBadge level="green" message={`${result.weightLbs.toFixed(0)} lbs estimated — tap below to send to Rigging`} />
-          <TouchableOpacity style={styles.sendBtn} onPress={sendToRigging}>
-            <Text style={styles.sendBtnText}>→ Use in Rigging Calculator</Text>
-          </TouchableOpacity>
-        </>
-      )}
+      {result && (() => {
+        const leafWt = mode === 'tree'
+          ? leafWeightLbs(result.weightLbs, species.category === 'Hardwood', inLeaf)
+          : 0;
+        const totalWt = result.weightLbs + leafWt;
+        return (
+          <>
+            <ResultCard
+              title="Weight Estimate"
+              rows={[
+                { label: 'Volume', value: `${result.volumeFt3.toFixed(2)} ft³` },
+                { label: 'Stem Weight', value: `${result.weightLbs.toFixed(0)} lbs` },
+                ...(leafWt > 0 ? [{ label: mode === 'tree' && species.category === 'Softwood' ? 'Needle Weight (~0.8%)' : 'Leaf Weight (~1.3%)', value: `${leafWt.toFixed(0)} lbs` }] : []),
+                { label: 'Total Weight', value: `${totalWt.toFixed(0)} lbs` },
+                { label: 'Species', value: species.name },
+                { label: 'Density', value: `${species.greenLbsPerFt3} lbs/ft³ (green)` },
+                { label: 'Condition', value: CONDITIONS.find(c => c.value === condition)?.label ?? '' },
+              ]}
+            />
+            <SafetyBadge level="green" message={`${totalWt.toFixed(0)} lbs total — tap below to send to Rigging`} />
+            <TouchableOpacity style={styles.sendBtn} onPress={sendToRigging}>
+              <Text style={styles.sendBtnText}>→ Use in Rigging Calculator</Text>
+            </TouchableOpacity>
+          </>
+        );
+      })()}
     </ScrollView>
   );
 }

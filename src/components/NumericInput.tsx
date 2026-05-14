@@ -1,4 +1,4 @@
-import { View, Text, TextInput, StyleSheet } from 'react-native';
+import { View, Text, TextInput, StyleSheet, KeyboardTypeOptions } from 'react-native';
 
 interface Props {
   label: string;
@@ -6,9 +6,10 @@ interface Props {
   onChangeText: (val: string) => void;
   unit?: string;
   placeholder?: string;
+  keyboardType?: KeyboardTypeOptions;
 }
 
-export default function NumericInput({ label, value, onChangeText, unit, placeholder }: Props) {
+export default function NumericInput({ label, value, onChangeText, unit, placeholder, keyboardType = 'decimal-pad' }: Props) {
   return (
     <View style={styles.wrapper}>
       <Text style={styles.label}>{label}{unit ? ` (${unit})` : ''}</Text>
@@ -16,7 +17,7 @@ export default function NumericInput({ label, value, onChangeText, unit, placeho
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
-        keyboardType="decimal-pad"
+        keyboardType={keyboardType}
         placeholder={placeholder ?? '0'}
         placeholderTextColor="#aaa"
       />

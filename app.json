@@ -28,7 +28,13 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "ArboristCalc needs your location to show current weather conditions and accurate daylight hours for your job site."
+        }
+      ]
     ]
   }
 }

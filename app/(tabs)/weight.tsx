@@ -9,6 +9,7 @@ import { SPECIES, Species, Condition, Category, getByCategory } from '@/data/spe
 import { calcLogWeight } from '@/math/weight';
 import { leafWeightLbs } from '@/math/environmental';
 import { STATE_TO_REGION, SPECIES_REGIONS, REGION_LABELS, Region } from '@/data/speciesRanges';
+import { C, T, R } from '@/theme';
 
 const CONDITIONS: { label: string; value: Condition }[] = [
   { label: 'Green', value: 'green' },
@@ -18,9 +19,7 @@ const CONDITIONS: { label: string; value: Condition }[] = [
 
 const CUSTOM_KEY = 'arborist_custom_species';
 
-interface CustomSpecies extends Species {
-  isCustom: true;
-}
+interface CustomSpecies extends Species { isCustom: true; }
 
 export default function WeightScreen() {
   const [mode, setMode]           = useState<'log' | 'tree'>('log');
@@ -28,21 +27,16 @@ export default function WeightScreen() {
   const [species, setSpecies]     = useState<Species>(SPECIES[0]);
   const [condition, setCondition] = useState<Condition>('green');
 
-  // log mode
   const [dSmall, setDSmall] = useState('');
   const [dLarge, setDLarge] = useState('');
   const [length, setLength] = useState('');
 
-  // tree mode
   const [dbh, setDbh]       = useState('');
   const [height, setHeight] = useState('');
   const [inLeaf, setInLeaf] = useState(true);
 
-  // region filter
   const [detectedRegion, setDetectedRegion] = useState<Region | null>(null);
-  const [showAll, setShowAll] = useState(false);
-
-  // custom species
+  const [showAll, setShowAll]               = useState(false);
   const [customSpecies, setCustomSpecies]   = useState<CustomSpecies[]>([]);
   const [modalVisible, setModalVisible]     = useState(false);
   const [newName, setNewName]               = useState('');
@@ -51,19 +45,13 @@ export default function WeightScreen() {
   const [newMor, setNewMor]                 = useState('');
   const [newNotes, setNewNotes]             = useState('');
 
-  useEffect(() => {
-    loadRegionAndCustom();
-  }, []);
+  useEffect(() => { loadRegionAndCustom(); }, []);
 
   async function loadRegionAndCustom() {
     const state = await AsyncStorage.getItem('arborist_detected_state');
-    if (state && STATE_TO_REGION[state]) {
-      setDetectedRegion(STATE_TO_REGION[state] as Region);
-    }
+    if (state && STATE_TO_REGION[state]) setDetectedRegion(STATE_TO_REGION[state] as Region);
     const raw = await AsyncStorage.getItem(CUSTOM_KEY);
-    if (raw) {
-      try { setCustomSpecies(JSON.parse(raw)); } catch {}
-    }
+    if (raw) { try { setCustomSpecies(JSON.parse(raw)); } catch {} }
   }
 
   async function saveCustomSpecies(updated: CustomSpecies[]) {
@@ -74,12 +62,11 @@ export default function WeightScreen() {
   function addCustomSpecies() {
     const density = parseFloat(newGreenDensity);
     const mor     = parseFloat(newMor);
-    if (!newName.trim()) { Alert.alert('Name required'); return; }
+    if (!newName.trim())              { Alert.alert('Name required'); return; }
     if (isNaN(density) || density <= 0) { Alert.alert('Enter a valid green density (lbs/ft³)'); return; }
-    if (isNaN(mor) || mor <= 0) { Alert.alert('Enter a valid MOR (psi)'); return; }
+    if (isNaN(mor) || mor <= 0)       { Alert.alert('Enter a valid MOR (psi)'); return; }
     const entry: CustomSpecies = {
-      name: newName.trim(),
-      category: newCategory,
+      name: newName.trim(), category: newCategory,
       greenLbsPerFt3: density,
       airDryLbsPerFt3: Math.round(density * 0.65),
       kilnDryLbsPerFt3: Math.round(density * 0.60),
@@ -103,29 +90,24 @@ export default function WeightScreen() {
     ]);
   }
 
-  // Build the displayed species list
-  const baseFiltered = getByCategory(category);
-  const regionFiltered = (detectedRegion && !showAll)
+  const baseFiltered     = getByCategory(category);
+  const regionFiltered   = (detectedRegion && !showAll)
     ? baseFiltered.filter(s => {
         const regions = SPECIES_REGIONS[s.name];
         return regions ? regions.includes(detectedRegion) : true;
       })
     : baseFiltered;
-
-  const customFiltered = customSpecies.filter(s => s.category === category);
+  const customFiltered   = customSpecies.filter(s => s.category === category);
   const displaySpecies: Species[] = [...regionFiltered, ...customFiltered];
 
   const result = (() => {
     try {
       if (mode === 'log') {
-        const s = parseFloat(dSmall);
-        const l = parseFloat(dLarge);
-        const n = parseFloat(length);
+        const s = parseFloat(dSmall), l = parseFloat(dLarge), n = parseFloat(length);
         if (!s || !l || !n) return null;
         return calcLogWeight({ mode, species, condition, diameterSmallIn: s, diameterLargeIn: l, lengthFt: n });
       } else {
-        const d = parseFloat(dbh);
-        const h = parseFloat(height);
+        const d = parseFloat(dbh), h = parseFloat(height);
         if (!d || !h) return null;
         return calcLogWeight({ mode, species, condition, dbhIn: d, heightFt: h });
       }
@@ -139,14 +121,12 @@ export default function WeightScreen() {
 
   const handleCategoryChange = (cat: Category) => {
     setCategory(cat);
-    const first = getByCategory(cat)[0];
-    setSpecies(first);
+    setSpecies(getByCategory(cat)[0]);
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} style={styles.screen}>
 
-      {/* ── Region banner ─────────────────────────────────── */}
       {detectedRegion && (
         <View style={styles.regionBanner}>
           <Text style={styles.regionBannerText}>
@@ -175,7 +155,9 @@ export default function WeightScreen() {
       />
 
       <View style={styles.speciesHeader}>
-        <Text style={styles.sectionLabel}>Species{detectedRegion && !showAll ? ` (${displaySpecies.length - customFiltered.length} regional)` : ''}</Text>
+        <Text style={styles.sectionLabel}>
+          Species{detectedRegion && !showAll ? ` (${displaySpecies.length - customFiltered.length} regional)` : ''}
+        </Text>
         <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
           <Text style={styles.addBtnText}>+ Custom</Text>
         </TouchableOpacity>
@@ -188,7 +170,7 @@ export default function WeightScreen() {
           return (
             <View key={s.name} style={styles.chipWrapper}>
               <TouchableOpacity
-                style={[styles.chip, isActive && styles.chipActive, isCustom && styles.chipCustom, isActive && isCustom && styles.chipCustomActive]}
+                style={[styles.chip, isActive && styles.chipActive, isCustom && !isActive && styles.chipCustom]}
                 onPress={() => setSpecies(s)}
               >
                 <Text style={[styles.chipText, isActive && styles.chipTextActive]}>{s.name}</Text>
@@ -227,7 +209,7 @@ export default function WeightScreen() {
         <>
           <NumericInput label="DBH (Diameter at Breast Height)" unit="in" value={dbh} onChangeText={setDbh} />
           <NumericInput label="Tree Height" unit="ft" value={height} onChangeText={setHeight} />
-          <Text style={styles.sectionLabel}>Leaf/Needle Status</Text>
+          <Text style={styles.sectionLabel}>Leaf / Needle Status</Text>
           <SegmentedButtons
             value={inLeaf ? 'yes' : 'no'}
             onValueChange={v => setInLeaf(v === 'yes')}
@@ -241,27 +223,25 @@ export default function WeightScreen() {
       )}
 
       {result && (() => {
-        const leafWt = mode === 'tree'
-          ? leafWeightLbs(result.weightLbs, species.category === 'Hardwood', inLeaf)
-          : 0;
+        const leafWt  = mode === 'tree' ? leafWeightLbs(result.weightLbs, species.category === 'Hardwood', inLeaf) : 0;
         const totalWt = result.weightLbs + leafWt;
         return (
           <>
             <ResultCard
               title="Weight Estimate"
               rows={[
-                { label: 'Volume', value: `${result.volumeFt3.toFixed(2)} ft³` },
+                { label: 'Volume',      value: `${result.volumeFt3.toFixed(2)} ft³` },
                 { label: 'Stem Weight', value: `${result.weightLbs.toFixed(0)} lbs` },
                 ...(leafWt > 0 ? [{ label: mode === 'tree' && species.category === 'Softwood' ? 'Needle Weight (~0.8%)' : 'Leaf Weight (~1.3%)', value: `${leafWt.toFixed(0)} lbs` }] : []),
                 { label: 'Total Weight', value: `${totalWt.toFixed(0)} lbs` },
-                { label: 'Species', value: species.name },
-                { label: 'Density', value: `${species.greenLbsPerFt3} lbs/ft³ (green)` },
-                { label: 'Condition', value: CONDITIONS.find(c => c.value === condition)?.label ?? '' },
+                { label: 'Species',      value: species.name },
+                { label: 'Density',      value: `${species.greenLbsPerFt3} lbs/ft³ (green)` },
+                { label: 'Condition',    value: CONDITIONS.find(c => c.value === condition)?.label ?? '' },
               ]}
             />
             <SafetyBadge level="green" message={`${totalWt.toFixed(0)} lbs total — tap below to send to Rigging`} />
             <TouchableOpacity style={styles.sendBtn} onPress={sendToRigging}>
-              <Text style={styles.sendBtnText}>→ Use in Rigging Calculator</Text>
+              <Text style={styles.sendBtnText}>→  Use in Rigging Calculator</Text>
             </TouchableOpacity>
           </>
         );
@@ -278,8 +258,8 @@ export default function WeightScreen() {
               style={styles.modalInput}
               value={newName}
               onChangeText={setNewName}
-              placeholder="e.g. Osage Orange"
-              placeholderTextColor="#aaa"
+              placeholder="e.g. Blue Gum Eucalyptus"
+              placeholderTextColor={C.textLight}
             />
 
             <Text style={styles.modalLabel}>Category</Text>
@@ -297,7 +277,7 @@ export default function WeightScreen() {
               onChangeText={setNewGreenDensity}
               keyboardType="decimal-pad"
               placeholder="e.g. 62"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={C.textLight}
             />
 
             <Text style={styles.modalLabel}>Green MOR (psi)</Text>
@@ -307,7 +287,7 @@ export default function WeightScreen() {
               onChangeText={setNewMor}
               keyboardType="decimal-pad"
               placeholder="e.g. 8000"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={C.textLight}
             />
 
             <Text style={styles.modalLabel}>Notes (optional)</Text>
@@ -316,7 +296,7 @@ export default function WeightScreen() {
               value={newNotes}
               onChangeText={setNewNotes}
               placeholder="Field notes, habitat, hazards…"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={C.textLight}
               multiline
             />
 
@@ -331,87 +311,85 @@ export default function WeightScreen() {
           </View>
         </View>
       </Modal>
-
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container:    { padding: 16, paddingBottom: 40 },
-  sectionLabel: { fontSize: 13, fontWeight: '600', color: '#555', marginTop: 16, marginBottom: 6 },
+  screen:    { backgroundColor: C.bg },
+  container: { padding: 16, paddingBottom: 48 },
+  sectionLabel: { fontSize: T.base, fontWeight: T.bold, color: C.green900, marginTop: 20, marginBottom: 8 },
   segment:      { marginBottom: 8 },
 
   regionBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#e8f5e9', borderRadius: 8, padding: 10, marginBottom: 12,
-    borderLeftWidth: 3, borderLeftColor: '#2e7d32',
+    backgroundColor: C.green50, borderRadius: R.md, padding: 11, marginBottom: 16,
+    borderLeftWidth: 4, borderLeftColor: C.green800,
   },
-  regionBannerText: { fontSize: 12, color: '#2e7d32', fontWeight: '600', flex: 1 },
-  regionToggle:     { fontSize: 12, color: '#1565c0', fontWeight: '600', marginLeft: 8 },
+  regionBannerText: { fontSize: T.sm, color: C.green900, fontWeight: T.bold, flex: 1 },
+  regionToggle:     { fontSize: T.sm, color: C.orange700, fontWeight: T.bold, marginLeft: 8 },
 
   speciesHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   addBtn: {
-    backgroundColor: '#e8f5e9', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 5,
-    borderWidth: 1, borderColor: '#a5d6a7',
+    backgroundColor: C.green50, borderRadius: R.xl,
+    paddingHorizontal: 14, paddingVertical: 6,
+    borderWidth: 1.5, borderColor: C.green100,
   },
-  addBtnText: { fontSize: 12, color: '#2e7d32', fontWeight: '600' },
+  addBtnText: { fontSize: T.sm, color: C.green900, fontWeight: T.bold },
 
-  chipRow:    { flexDirection: 'row', marginBottom: 4 },
+  chipRow:    { flexDirection: 'row', marginBottom: 6 },
   chipWrapper: { flexDirection: 'row', alignItems: 'flex-start', marginRight: 8, marginBottom: 8 },
   chip: {
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
-    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 14, paddingVertical: 9, borderRadius: R.xl,
+    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border,
   },
-  chipActive:       { backgroundColor: '#2e7d32' },
-  chipCustom:       { backgroundColor: '#e3f2fd', borderWidth: 1, borderColor: '#90caf9' },
-  chipCustomActive: { backgroundColor: '#1565c0', borderColor: '#1565c0' },
-  chipText:         { fontSize: 13, color: '#333' },
-  chipTextActive:   { color: '#fff', fontWeight: '600' },
+  chipActive:       { backgroundColor: C.green900, borderColor: C.green900 },
+  chipCustom:       { backgroundColor: '#e3f2fd', borderColor: '#90caf9' },
+  chipText:         { fontSize: T.sm, color: C.textMid, fontWeight: T.semibold },
+  chipTextActive:   { color: '#fff', fontWeight: T.bold },
   chipDelete: {
     marginLeft: -8, marginTop: -4,
     backgroundColor: '#ef5350', borderRadius: 10,
     width: 18, height: 18, alignItems: 'center', justifyContent: 'center',
   },
-  chipDeleteText: { color: '#fff', fontSize: 10, fontWeight: '700', lineHeight: 18 },
+  chipDeleteText: { color: '#fff', fontSize: 10, fontWeight: T.heavy, lineHeight: 18 },
 
   noteBox: {
-    backgroundColor: '#f1f8e9', borderRadius: 8, padding: 10,
-    marginBottom: 4, borderLeftWidth: 3, borderLeftColor: '#2e7d32',
+    backgroundColor: C.green50, borderRadius: R.md, padding: 11,
+    marginBottom: 6, borderLeftWidth: 4, borderLeftColor: C.green800,
   },
-  noteText: { fontSize: 12, color: '#33691e', lineHeight: 18 },
+  noteText: { fontSize: T.sm, color: C.green900, lineHeight: 20 },
 
   sendBtn: {
-    marginTop: 12, backgroundColor: '#1565c0', borderRadius: 8,
-    paddingVertical: 12, alignItems: 'center',
+    marginTop: 14, backgroundColor: C.green900, borderRadius: R.md,
+    paddingVertical: 14, alignItems: 'center',
+    elevation: 2, shadowColor: '#000', shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 }, shadowRadius: 4,
   },
-  sendBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  sendBtnText: { color: '#fff', fontWeight: T.bold, fontSize: T.base, letterSpacing: 0.3 },
 
-  // Modal
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
   modalCard: {
-    backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16,
-    padding: 20, paddingBottom: 36,
+    backgroundColor: C.card, borderTopLeftRadius: R.lg, borderTopRightRadius: R.lg,
+    padding: 22, paddingBottom: 38,
   },
-  modalTitle: { fontSize: 17, fontWeight: '700', color: '#1a1a1a', marginBottom: 16 },
-  modalLabel: { fontSize: 12, fontWeight: '600', color: '#555', marginTop: 12, marginBottom: 4 },
+  modalTitle:  { fontSize: T.lg, fontWeight: T.heavy, color: C.text, marginBottom: 16 },
+  modalLabel:  { fontSize: T.sm, fontWeight: T.bold, color: C.green900, marginTop: 12, marginBottom: 5 },
   modalInput: {
-    borderWidth: 1, borderColor: '#ccc', borderRadius: 8,
-    paddingHorizontal: 12, paddingVertical: 10,
-    fontSize: 15, color: '#1a1a1a', backgroundColor: '#fafafa',
+    borderWidth: 1.5, borderColor: C.borderMid, borderRadius: R.md,
+    paddingHorizontal: 14, paddingVertical: 11,
+    fontSize: T.base, color: C.text, backgroundColor: C.stripe,
   },
-  modalInputMulti: { height: 70, textAlignVertical: 'top' },
-  modalButtons: { flexDirection: 'row', marginTop: 20, gap: 12 },
+  modalInputMulti: { height: 72, textAlignVertical: 'top' },
+  modalButtons:    { flexDirection: 'row', marginTop: 20, gap: 12 },
   modalCancel: {
-    flex: 1, borderRadius: 8, paddingVertical: 12, alignItems: 'center',
-    backgroundColor: '#f0f0f0',
+    flex: 1, borderRadius: R.md, paddingVertical: 13, alignItems: 'center',
+    backgroundColor: C.bg, borderWidth: 1.5, borderColor: C.border,
   },
-  modalCancelText: { fontSize: 14, fontWeight: '600', color: '#555' },
+  modalCancelText: { fontSize: T.base, fontWeight: T.bold, color: C.textMid },
   modalSave: {
-    flex: 1, borderRadius: 8, paddingVertical: 12, alignItems: 'center',
-    backgroundColor: '#2e7d32',
+    flex: 1, borderRadius: R.md, paddingVertical: 13, alignItems: 'center',
+    backgroundColor: C.green900,
   },
-  modalSaveText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  modalSaveText: { fontSize: T.base, fontWeight: T.bold, color: '#fff' },
 });

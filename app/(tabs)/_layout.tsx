@@ -1,16 +1,33 @@
 import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { C, T } from '@/theme';
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#2e7d32',
-        tabBarInactiveTintColor: '#888',
-        tabBarStyle: { backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e0e0e0' },
-        headerStyle: { backgroundColor: '#2e7d32' },
+        tabBarActiveTintColor: '#ffffff',
+        tabBarInactiveTintColor: 'rgba(255,255,255,0.45)',
+        tabBarStyle: {
+          backgroundColor: C.green900,
+          borderTopWidth: 0,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOpacity: 0.18,
+          shadowOffset: { width: 0, height: -2 },
+          shadowRadius: 6,
+          height: 62,
+          paddingBottom: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: T.xs + 1,
+          fontWeight: T.semibold,
+          letterSpacing: 0.2,
+        },
+        headerStyle: { backgroundColor: C.green900 },
         headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: '700' },
+        headerTitleStyle: { fontWeight: T.heavy, fontSize: T.lg, letterSpacing: 0.3 },
+        headerShadowVisible: false,
       }}
     >
       <Tabs.Screen

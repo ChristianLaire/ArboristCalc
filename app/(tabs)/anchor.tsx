@@ -9,6 +9,7 @@ import { SPECIES, Species, Category, getByCategory } from '@/data/species';
 import { calcAnchor, DecayLevel, SafetyFactor } from '@/math/anchor';
 import { frozenWoodFactor, frozenWoodLabel } from '@/math/environmental';
 import { STATE_TO_REGION, SPECIES_REGIONS, REGION_LABELS, Region } from '@/data/speciesRanges';
+import { C, T, R } from '@/theme';
 
 const DECAY_OPTIONS: { label: string; value: DecayLevel }[] = [
   { label: 'None', value: 'none' },
@@ -24,15 +25,15 @@ const SF_OPTIONS: { label: string; value: SafetyFactor }[] = [
 interface CustomSpecies extends Species { isCustom: true; }
 
 export default function AnchorScreen() {
-  const [load, setLoad]                   = useState('');
-  const [momentArm, setMomentArm]         = useState('1.0');
+  const [load, setLoad]                     = useState('');
+  const [momentArm, setMomentArm]           = useState('1.0');
   const [actualDiameter, setActualDiameter] = useState('');
-  const [category, setCategory]           = useState<Category>('Hardwood');
-  const [species, setSpecies]             = useState<Species>(SPECIES[0]);
-  const [decay, setDecay]                 = useState<DecayLevel>('none');
-  const [sf, setSf]                       = useState<SafetyFactor>('rigging');
-  const [tempF, setTempF]                 = useState('');
-  const [imported, setImported]           = useState(false);
+  const [category, setCategory]             = useState<Category>('Hardwood');
+  const [species, setSpecies]               = useState<Species>(SPECIES[0]);
+  const [decay, setDecay]                   = useState<DecayLevel>('none');
+  const [sf, setSf]                         = useState<SafetyFactor>('rigging');
+  const [tempF, setTempF]                   = useState('');
+  const [imported, setImported]             = useState(false);
 
   const [detectedRegion, setDetectedRegion] = useState<Region | null>(null);
   const [showAll, setShowAll]               = useState(false);
@@ -63,10 +64,10 @@ export default function AnchorScreen() {
       })
     : baseFiltered;
 
-  const customFiltered = customSpecies.filter(s => s.category === category);
+  const customFiltered  = customSpecies.filter(s => s.category === category);
   const displaySpecies: Species[] = [...regionFiltered, ...customFiltered];
 
-  const temp = parseFloat(tempF);
+  const temp        = parseFloat(tempF);
   const tempFactor  = !isNaN(temp) ? frozenWoodFactor(temp) : 1.0;
   const adjustedMor = Math.round(species.morPsi * tempFactor);
 
@@ -76,18 +77,15 @@ export default function AnchorScreen() {
       const arm = parseFloat(momentArm);
       const dia = parseFloat(actualDiameter);
       if (!l || !arm || !dia) return null;
-      return calcAnchor({
-        loadLbs: l, momentArmFt: arm, actualDiameterIn: dia,
-        morPsi: adjustedMor, decay, safetyFactor: sf,
-      });
+      return calcAnchor({ loadLbs: l, momentArmFt: arm, actualDiameterIn: dia, morPsi: adjustedMor, decay, safetyFactor: sf });
     } catch { return null; }
   })();
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} style={styles.screen}>
       {imported && (
         <View style={styles.importBanner}>
-          <Text style={styles.importText}>⬆ Load imported from Rigging Calculator</Text>
+          <Text style={styles.importText}>⬆  Load imported from Rigging Calculator</Text>
         </View>
       )}
 
@@ -107,12 +105,9 @@ export default function AnchorScreen() {
 
       <Text style={styles.sectionLabel}>Species (for MOR)</Text>
 
-      {/* Region banner */}
       {detectedRegion && (
         <View style={styles.regionBanner}>
-          <Text style={styles.regionBannerText}>
-            📍 {REGION_LABELS[detectedRegion]} species
-          </Text>
+          <Text style={styles.regionBannerText}>📍 {REGION_LABELS[detectedRegion]} species</Text>
           <TouchableOpacity onPress={() => setShowAll(v => !v)}>
             <Text style={styles.regionToggle}>{showAll ? 'Show Regional' : 'Show All'}</Text>
           </TouchableOpacity>
@@ -167,11 +162,11 @@ export default function AnchorScreen() {
           <ResultCard
             title="Anchor Rating"
             rows={[
-              { label: 'Required Diameter', value: `${result.requiredDiameterIn.toFixed(2)} in` },
-              { label: 'Effective Diameter', value: `${result.effectiveDiameterIn.toFixed(2)} in` },
+              { label: 'Required Diameter',     value: `${result.requiredDiameterIn.toFixed(2)} in` },
+              { label: 'Effective Diameter',    value: `${result.effectiveDiameterIn.toFixed(2)} in` },
               { label: 'Ratio (actual/required)', value: `${result.ratio.toFixed(2)}×` },
               { label: 'MOR used', value: `${adjustedMor.toLocaleString()} psi${tempFactor > 1 ? ` (×${tempFactor.toFixed(2)} frozen)` : ''}` },
-              { label: 'Safety Factor', value: sf === 'rigging' ? '3.0×' : '5.0×' },
+              { label: 'Safety Factor',         value: sf === 'rigging' ? '3.0×' : '5.0×' },
             ]}
           />
           <SafetyBadge level={result.level} message={result.message} />
@@ -182,35 +177,41 @@ export default function AnchorScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:    { padding: 16, paddingBottom: 40 },
-  sectionLabel: { fontSize: 13, fontWeight: '600', color: '#555', marginTop: 16, marginBottom: 6 },
+  screen:       { backgroundColor: C.bg },
+  container:    { padding: 16, paddingBottom: 48 },
+  sectionLabel: { fontSize: T.base, fontWeight: T.bold, color: C.green900, marginTop: 20, marginBottom: 8 },
   segment:      { marginBottom: 8 },
-  chipRow:      { flexDirection: 'row', marginBottom: 4 },
+
+  chipRow: { flexDirection: 'row', marginBottom: 4 },
   chip: {
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
-    backgroundColor: '#f0f0f0', marginRight: 8, marginBottom: 8,
+    paddingHorizontal: 14, paddingVertical: 9, borderRadius: R.xl,
+    backgroundColor: C.card, marginRight: 8, marginBottom: 8,
+    borderWidth: 1.5, borderColor: C.border,
   },
-  chipActive:  { backgroundColor: '#2e7d32' },
-  chipCustom:  { backgroundColor: '#e3f2fd', borderWidth: 1, borderColor: '#90caf9' },
-  chipText:    { fontSize: 13, color: '#333' },
-  chipTextActive: { color: '#fff', fontWeight: '600' },
+  chipActive:  { backgroundColor: C.green900, borderColor: C.green900 },
+  chipCustom:  { backgroundColor: '#e3f2fd', borderColor: '#90caf9' },
+  chipText:    { fontSize: T.sm, color: C.textMid, fontWeight: T.semibold },
+  chipTextActive: { color: '#fff', fontWeight: T.bold },
+
   importBanner: {
-    backgroundColor: '#e3f2fd', borderRadius: 8, padding: 10,
-    marginBottom: 12, borderWidth: 1, borderColor: '#90caf9',
+    backgroundColor: C.importBg, borderRadius: R.md, padding: 12,
+    marginBottom: 16, borderLeftWidth: 4, borderLeftColor: C.importBorder,
   },
-  importText: { fontSize: 13, color: '#1565c0', fontWeight: '600' },
+  importText: { fontSize: T.base, color: C.importText, fontWeight: T.semibold },
+
   regionBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#e8f5e9', borderRadius: 8, padding: 10, marginBottom: 8,
-    borderLeftWidth: 3, borderLeftColor: '#2e7d32',
+    backgroundColor: C.green50, borderRadius: R.md, padding: 10, marginBottom: 10,
+    borderLeftWidth: 4, borderLeftColor: C.green800,
   },
-  regionBannerText: { fontSize: 12, color: '#2e7d32', fontWeight: '600', flex: 1 },
-  regionToggle:     { fontSize: 12, color: '#1565c0', fontWeight: '600', marginLeft: 8 },
+  regionBannerText: { fontSize: T.sm, color: C.green900, fontWeight: T.bold, flex: 1 },
+  regionToggle:     { fontSize: T.sm, color: C.orange700, fontWeight: T.bold, marginLeft: 8 },
+
   noteBox: {
-    backgroundColor: '#f1f8e9', borderRadius: 8, padding: 10,
-    marginBottom: 4, borderLeftWidth: 3, borderLeftColor: '#2e7d32',
+    backgroundColor: C.green50, borderRadius: R.md, padding: 11,
+    marginBottom: 6, borderLeftWidth: 4, borderLeftColor: C.green800,
   },
-  noteBoxFrozen: { backgroundColor: '#e3f2fd', borderLeftColor: '#1565c0' },
-  noteText:      { fontSize: 12, color: '#33691e', lineHeight: 18 },
+  noteBoxFrozen:  { backgroundColor: '#e3f2fd', borderLeftColor: '#1565c0' },
+  noteText:       { fontSize: T.sm, color: C.green900, lineHeight: 20 },
   noteTextFrozen: { color: '#1565c0' },
 });

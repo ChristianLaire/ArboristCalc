@@ -1,23 +1,22 @@
 import { useState } from 'react';
-import { Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { Text, ScrollView, StyleSheet } from 'react-native';
 import { SegmentedButtons } from 'react-native-paper';
 import NumericInput from '@/components/NumericInput';
 import ResultCard from '@/components/ResultCard';
 import SafetyBadge from '@/components/SafetyBadge';
 import { calcSlingTension, calcMechanicalAdvantage, MaSystem } from '@/math/tension';
+import { C, T } from '@/theme';
 
 const MA_SYSTEMS: MaSystem[] = ['2:1', '3:1', '4:1'];
 
 export default function TensionScreen() {
   const [subMode, setSubMode] = useState<'sling' | 'ma'>('sling');
 
-  // Sling angle
-  const [load, setLoad] = useState('');
+  const [load, setLoad]   = useState('');
   const [angle, setAngle] = useState('');
 
-  // MA
-  const [maLoad, setMaLoad] = useState('');
-  const [maSystem, setMaSystem] = useState<MaSystem>('3:1');
+  const [maLoad, setMaLoad]         = useState('');
+  const [maSystem, setMaSystem]     = useState<MaSystem>('3:1');
   const [efficiency, setEfficiency] = useState('85');
 
   const slingResult = (() => {
@@ -31,7 +30,7 @@ export default function TensionScreen() {
 
   const maResult = (() => {
     try {
-      const l = parseFloat(maLoad);
+      const l   = parseFloat(maLoad);
       const eff = parseFloat(efficiency) / 100;
       if (!l || isNaN(eff)) return null;
       return calcMechanicalAdvantage({ loadLbs: l, system: maSystem, sheaveEfficiency: eff });
@@ -39,7 +38,7 @@ export default function TensionScreen() {
   })();
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} style={styles.screen}>
       <Text style={styles.sectionLabel}>Calculator Type</Text>
       <SegmentedButtons
         value={subMode}
@@ -58,7 +57,7 @@ export default function TensionScreen() {
                 title="Sling Tension"
                 rows={[
                   { label: 'Tension per Leg', value: `${slingResult.tensionPerLegLbs.toFixed(0)} lbs` },
-                  { label: 'Included Angle', value: `${angle}°` },
+                  { label: 'Included Angle',  value: `${angle}°` },
                 ]}
               />
               <SafetyBadge level={slingResult.level} message={slingResult.message} />
@@ -81,9 +80,9 @@ export default function TensionScreen() {
               <ResultCard
                 title="Mechanical Advantage"
                 rows={[
-                  { label: 'System', value: maSystem },
-                  { label: 'Actual MA', value: `${maResult.actualMa.toFixed(2)}:1` },
-                  { label: 'Hauling Force', value: `${maResult.haulingForceLbs.toFixed(0)} lbs` },
+                  { label: 'System',         value: maSystem },
+                  { label: 'Actual MA',       value: `${maResult.actualMa.toFixed(2)}:1` },
+                  { label: 'Hauling Force',   value: `${maResult.haulingForceLbs.toFixed(0)} lbs` },
                 ]}
               />
               <SafetyBadge level={maResult.level} message={maResult.message} />
@@ -96,7 +95,8 @@ export default function TensionScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, paddingBottom: 40 },
-  sectionLabel: { fontSize: 13, fontWeight: '600', color: '#555', marginTop: 16, marginBottom: 6 },
-  segment: { marginBottom: 8 },
+  screen:       { backgroundColor: C.bg },
+  container:    { padding: 16, paddingBottom: 48 },
+  sectionLabel: { fontSize: T.base, fontWeight: T.bold, color: C.green900, marginTop: 20, marginBottom: 8 },
+  segment:      { marginBottom: 8 },
 });

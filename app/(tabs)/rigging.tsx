@@ -6,13 +6,14 @@ import ResultCard from '@/components/ResultCard';
 import SafetyBadge from '@/components/SafetyBadge';
 import { DEFAULT_ROPES, Rope } from '@/data/ropes';
 import { calcRigging } from '@/math/rigging';
+import { C, T, R } from '@/theme';
 
 export default function RiggingScreen() {
-  const [staticLoad, setStaticLoad] = useState('');
+  const [staticLoad, setStaticLoad]     = useState('');
   const [impactFactor, setImpactFactor] = useState('2.0');
-  const [ropeAngle, setRopeAngle] = useState('90');
+  const [ropeAngle, setRopeAngle]       = useState('90');
   const [selectedRope, setSelectedRope] = useState<Rope>(DEFAULT_ROPES[4]);
-  const [imported, setImported] = useState(false);
+  const [imported, setImported]         = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem('crossModule_weightLbs').then(val => {
@@ -22,9 +23,9 @@ export default function RiggingScreen() {
 
   const result = (() => {
     try {
-      const load = parseFloat(staticLoad);
+      const load   = parseFloat(staticLoad);
       const impact = parseFloat(impactFactor);
-      const angle = parseFloat(ropeAngle);
+      const angle  = parseFloat(ropeAngle);
       if (!load || !impact || isNaN(angle)) return null;
       return calcRigging({ staticLoadLbs: load, impactFactor: impact, ropeAngleDeg: angle, wllLbs: selectedRope.wllLbs });
     } catch { return null; }
@@ -36,10 +37,10 @@ export default function RiggingScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} style={styles.screen}>
       {imported && (
         <View style={styles.importBanner}>
-          <Text style={styles.importText}>⬆ Load imported from Weight Calculator</Text>
+          <Text style={styles.importText}>⬆  Load imported from Weight Calculator</Text>
         </View>
       )}
 
@@ -55,7 +56,11 @@ export default function RiggingScreen() {
           onPress={() => setSelectedRope(r)}
         >
           <Text style={[styles.ropeName, selectedRope.id === r.id && styles.ropeNameActive]}>{r.name}</Text>
-          <Text style={[styles.ropeWll, selectedRope.id === r.id && styles.ropeWllActive]}>WLL {r.wllLbs} lbs</Text>
+          <View style={[styles.wllBadge, selectedRope.id === r.id && styles.wllBadgeActive]}>
+            <Text style={[styles.ropeWll, selectedRope.id === r.id && styles.ropeWllActive]}>
+              WLL {r.wllLbs.toLocaleString()} lbs
+            </Text>
+          </View>
         </TouchableOpacity>
       ))}
 
@@ -64,16 +69,16 @@ export default function RiggingScreen() {
           <ResultCard
             title="Rigging Loads"
             rows={[
-              { label: 'Dynamic Load', value: `${result.dynamicLoadLbs.toFixed(0)} lbs` },
-              { label: 'Block Force', value: `${result.blockForceLbs.toFixed(0)} lbs` },
+              { label: 'Dynamic Load',    value: `${result.dynamicLoadLbs.toFixed(0)} lbs` },
+              { label: 'Block Force',     value: `${result.blockForceLbs.toFixed(0)} lbs` },
               { label: 'Total Spar Load', value: `${result.sparLoadLbs.toFixed(0)} lbs` },
-              { label: 'Rope WLL', value: `${selectedRope.wllLbs} lbs` },
-              { label: '% of WLL', value: `${result.percentWll.toFixed(1)}%` },
+              { label: 'Rope WLL',        value: `${selectedRope.wllLbs.toLocaleString()} lbs` },
+              { label: '% of WLL',        value: `${result.percentWll.toFixed(1)}%` },
             ]}
           />
           <SafetyBadge level={result.level} message={result.message} />
           <TouchableOpacity style={styles.sendBtn} onPress={sendToAnchor}>
-            <Text style={styles.sendBtnText}>→ Use in Anchor Calculator</Text>
+            <Text style={styles.sendBtnText}>→  Use in Anchor Calculator</Text>
           </TouchableOpacity>
         </>
       )}
@@ -82,26 +87,38 @@ export default function RiggingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, paddingBottom: 40 },
-  sectionLabel: { fontSize: 13, fontWeight: '600', color: '#555', marginTop: 16, marginBottom: 6 },
+  screen:       { backgroundColor: C.bg },
+  container:    { padding: 16, paddingBottom: 48 },
+  sectionLabel: { fontSize: T.base, fontWeight: T.bold, color: C.green900, marginTop: 20, marginBottom: 8 },
+
   importBanner: {
-    backgroundColor: '#e3f2fd', borderRadius: 8, padding: 10,
-    marginBottom: 12, borderWidth: 1, borderColor: '#90caf9',
+    backgroundColor: C.importBg, borderRadius: R.md, padding: 12,
+    marginBottom: 16, borderLeftWidth: 4, borderLeftColor: C.importBorder,
   },
-  importText: { fontSize: 13, color: '#1565c0', fontWeight: '600' },
+  importText: { fontSize: T.base, color: C.importText, fontWeight: T.semibold },
+
   ropeRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0',
-    backgroundColor: '#fafafa', marginBottom: 8,
+    paddingVertical: 13, paddingHorizontal: 14,
+    borderRadius: R.md, borderWidth: 1.5, borderColor: C.border,
+    backgroundColor: C.card, marginBottom: 8,
   },
-  ropeRowActive: { backgroundColor: '#2e7d32', borderColor: '#2e7d32' },
-  ropeName: { fontSize: 14, color: '#333' },
-  ropeNameActive: { color: '#fff', fontWeight: '600' },
-  ropeWll: { fontSize: 13, color: '#888' },
-  ropeWllActive: { color: '#c8e6c9' },
+  ropeRowActive: { backgroundColor: C.green900, borderColor: C.green900 },
+  ropeName:      { fontSize: T.base, color: C.text, fontWeight: T.semibold },
+  ropeNameActive: { color: '#fff', fontWeight: T.bold },
+
+  wllBadge: {
+    backgroundColor: C.bg, borderRadius: R.xl, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  wllBadgeActive: { backgroundColor: C.green800 },
+  ropeWll:        { fontSize: T.sm, color: C.textMid, fontWeight: T.semibold },
+  ropeWllActive:  { color: C.green100 },
+
   sendBtn: {
-    marginTop: 12, backgroundColor: '#1565c0', borderRadius: 8,
-    paddingVertical: 12, alignItems: 'center',
+    marginTop: 14, backgroundColor: C.green900, borderRadius: R.md,
+    paddingVertical: 14, alignItems: 'center',
+    elevation: 2, shadowColor: '#000', shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 }, shadowRadius: 4,
   },
-  sendBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  sendBtnText: { color: '#fff', fontWeight: T.bold, fontSize: T.base, letterSpacing: 0.3 },
 });

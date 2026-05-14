@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
+import { C, T, R } from '@/theme';
 
 interface Row {
   label: string;
@@ -13,9 +14,12 @@ interface Props {
 export default function ResultCard({ title, rows }: Props) {
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>{title}</Text>
+      <View style={styles.titleRow}>
+        <View style={styles.titleBar} />
+        <Text style={styles.title}>{title}</Text>
+      </View>
       {rows.map((row, i) => (
-        <View key={i} style={styles.row}>
+        <View key={i} style={[styles.row, i % 2 === 1 && styles.rowAlt]}>
           <Text style={styles.rowLabel}>{row.label}</Text>
           <Text style={styles.rowValue}>{row.value}</Text>
         </View>
@@ -26,38 +30,60 @@ export default function ResultCard({ title, rows }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 16,
+    backgroundColor: C.card,
+    borderRadius: R.md,
     marginTop: 16,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    elevation: 2,
+    borderColor: C.border,
+    overflow: 'hidden',
+    elevation: 3,
     shadowColor: '#000',
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.07,
     shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
+    shadowRadius: 6,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  titleBar: {
+    width: 4,
+    height: 18,
+    backgroundColor: C.green800,
+    borderRadius: 2,
+    marginRight: 10,
   },
   title: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#2e7d32',
-    marginBottom: 10,
+    fontSize: T.md,
+    fontWeight: T.heavy,
+    color: C.green900,
+    flex: 1,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  rowAlt: {
+    backgroundColor: C.stripe,
   },
   rowLabel: {
-    fontSize: 14,
-    color: '#555',
+    fontSize: T.base,
+    color: C.textMid,
+    flex: 1,
   },
   rowValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1a1a1a',
+    fontSize: T.base,
+    fontWeight: T.bold,
+    color: C.text,
+    textAlign: 'right',
+    marginLeft: 12,
   },
 });

@@ -11,13 +11,14 @@ import LegalBanner from '@/components/LegalBanner';
 import PressableFeedback from '@/components/PressableFeedback';
 import { SPECIES, Species, Condition, Category, getByCategory } from '@/data/species';
 import { calcLogWeight } from '@/math/weight';
+import { planRiggingSections } from '@/math/sections';
 import { leafWeightLbs } from '@/math/environmental';
 import { STATE_TO_REGION, SPECIES_REGIONS, REGION_LABELS, Region } from '@/data/speciesRanges';
 import { FF, T, R, TOUCH_TARGET, ColorPalette } from '@/theme';
 import { useColors } from '@/context/ThemeContext';
 import { useAutosave, loadAutosaved } from '@/hooks/useAutosave';
 
-type WeightSave = { mode: 'log'|'tree'; category: Category; speciesName: string; condition: Condition; dSmall: string; dLarge: string; length: string; dbh: string; height: string; inLeaf: boolean };
+type WeightSave = { mode: 'log'|'tree'; category: Category; speciesName: string; condition: Condition; dSmall: string; dLarge: string; length: string; dbh: string; height: string; inLeaf: boolean; numSections: number; maxSectionWeight: string };
 
 const CONDITIONS: { label: string; value: Condition }[] = [
   { label: 'Green', value: 'green' },
@@ -66,6 +67,37 @@ function makeStyles(C: ColorPalette) {
     shareBtn:     { marginTop: 10, backgroundColor: C.card, borderRadius: R.pill, paddingVertical: 0, minHeight: TOUCH_TARGET, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: C.border },
     shareBtnText: { color: C.green900, fontFamily: FF.semibold, fontSize: T.base },
 
+    // ── Rigging section planner ───────────────────────────────────
+    planCard:         { backgroundColor: C.card, borderRadius: R.md, marginTop: 16, borderWidth: 1, borderColor: C.border, overflow: 'hidden', elevation: 3, shadowColor: '#000', shadowOpacity: 0.09, shadowOffset: { width: 0, height: 2 }, shadowRadius: 8 },
+    planTitleRow:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: C.border },
+    planTitleBar:     { width: 4, height: 20, backgroundColor: C.ctaOrange, borderRadius: 2, marginRight: 10 },
+    planTitle:        { fontSize: T.md, fontFamily: FF.heavy, color: C.green900, flex: 1 },
+    planSummary:      { fontSize: T.sm, fontFamily: FF.normal, color: C.textMid, padding: 12, borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: C.stripe },
+    planCountRow:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border, gap: 8 },
+    planCountLabel:   { fontSize: T.sm, fontFamily: FF.bold, color: C.green900, marginRight: 4 },
+    planCountChip:    { paddingHorizontal: 14, paddingVertical: 8, borderRadius: R.pill, backgroundColor: C.bg, borderWidth: 1.5, borderColor: C.border },
+    planCountChipActive: { backgroundColor: C.green900, borderColor: C.green900 },
+    planCountChipText:       { fontSize: T.sm, fontFamily: FF.semibold, color: C.textMid },
+    planCountChipTextActive: { color: '#fff', fontFamily: FF.bold },
+
+    planRow:       { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: C.border },
+    planRowAlt:    { backgroundColor: C.stripe },
+    planRowLast:   { borderBottomWidth: 0 },
+    planDot:       { width: 10, height: 10, borderRadius: 5, marginRight: 12, marginTop: 2 },
+    planDotGreen:  { backgroundColor: C.safeGreenText },
+    planDotRed:    { backgroundColor: C.safeRedText },
+    planDotGray:   { backgroundColor: C.border },
+    planLeft:      { flex: 1 },
+    planSectionNum:    { fontSize: T.sm, fontFamily: FF.heavy, color: C.text },
+    planSectionDetail: { fontSize: 12, fontFamily: FF.normal, color: C.textMid, marginTop: 2 },
+    planRight:      { alignItems: 'flex-end' },
+    planWeight:     { fontSize: T.base, fontFamily: FF.heavy, color: C.text, fontVariant: ['tabular-nums'] },
+    planWeightOver: { color: C.safeRedText },
+    planStatus:     { fontSize: 12, fontFamily: FF.semibold, marginTop: 2 },
+    planStatusOk:   { color: C.safeGreenText },
+    planStatusOver: { color: C.safeRedText },
+    planStatusNone: { color: C.textLight },
+
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
     modalCard:    { backgroundColor: C.card, borderTopLeftRadius: R.lg, borderTopRightRadius: R.lg, padding: 22, paddingBottom: 40 },
     modalTitle:   { fontSize: T.lg, fontFamily: FF.heavy, color: C.text, marginBottom: 16 },
@@ -96,6 +128,9 @@ export default function WeightScreen() {
   const [height, setHeight] = useState('');
   const [inLeaf, setInLeaf] = useState(true);
 
+  const [numSections, setNumSections]       = useState(4);
+  const [maxSectionWeight, setMaxSectionWeight] = useState('');
+
   const [detectedState, setDetectedState]   = useState<string | null>(null);
   const [detectedRegion, setDetectedRegion] = useState<Region | null>(null);
   const [showAll, setShowAll]               = useState(false);
@@ -120,6 +155,8 @@ export default function WeightScreen() {
       if (saved.dbh)       setDbh(saved.dbh);
       if (saved.height)    setHeight(saved.height);
       setInLeaf(saved.inLeaf ?? true);
+      if (saved.numSections)    setNumSections(saved.numSections);
+      if (saved.maxSectionWeight) setMaxSectionWeight(saved.maxSectionWeight);
       if (saved.category)  setCategory(saved.category);
       const found = SPECIES.find(s => s.name === saved.speciesName);
       if (found) setSpecies(found);
@@ -194,7 +231,7 @@ export default function WeightScreen() {
 
   const handleCategoryChange = (cat: Category) => { setCategory(cat); setSpecies(getByCategory(cat)[0]); };
 
-  useAutosave('autosave_weight', { mode, category, speciesName: species.name, condition, dSmall, dLarge, length, dbh, height, inLeaf } satisfies WeightSave);
+  useAutosave('autosave_weight', { mode, category, speciesName: species.name, condition, dSmall, dLarge, length, dbh, height, inLeaf, numSections, maxSectionWeight } satisfies WeightSave);
 
   const shareResult = async (totalWt: number) => {
     const condLabel = CONDITIONS.find(c => c.value === condition)?.label ?? condition;
@@ -288,6 +325,76 @@ export default function WeightScreen() {
             <PressableFeedback style={styles.shareBtn} onPress={() => shareResult(totalWt)} haptic="light">
               <Text style={styles.shareBtnText}>↑  Share Result</Text>
             </PressableFeedback>
+
+            {/* Rigging Section Planner — tree mode only */}
+            {mode === 'tree' && (() => {
+              const maxLbs = parseFloat(maxSectionWeight);
+              const hasMax = !isNaN(maxLbs) && maxLbs > 0;
+              const sections = planRiggingSections(totalWt, parseFloat(dbh), parseFloat(height), numSections, hasMax ? maxLbs : null);
+              const heaviest = Math.max(...sections.map(s => s.weightLbs));
+              const overCount = sections.filter(s => s.exceedsMax).length;
+              return (
+                <View style={styles.planCard}>
+                  <View style={styles.planTitleRow}>
+                    <View style={styles.planTitleBar} />
+                    <Text style={styles.planTitle}>Rigging Section Plan</Text>
+                  </View>
+
+                  <Text style={styles.planSummary}>
+                    {numSections} sections · {(parseFloat(height) / numSections).toFixed(1)} ft each · heaviest piece ~{heaviest.toLocaleString()} lbs
+                    {hasMax && overCount > 0 ? `  ·  ${overCount} section${overCount > 1 ? 's' : ''} exceed limit` : ''}
+                    {hasMax && overCount === 0 ? '  ·  all within limit' : ''}
+                  </Text>
+
+                  <NumericInput
+                    label="Max Rigging Load (WLL ÷ SF)"
+                    unit="lbs"
+                    value={maxSectionWeight}
+                    onChangeText={setMaxSectionWeight}
+                    placeholder="Optional — for safety check"
+                  />
+
+                  <View style={styles.planCountRow}>
+                    <Text style={styles.planCountLabel}>Sections:</Text>
+                    {[3, 4, 5, 6, 8].map(n => (
+                      <PressableFeedback
+                        key={n}
+                        style={[styles.planCountChip, numSections === n && styles.planCountChipActive]}
+                        onPress={() => setNumSections(n)}
+                        haptic="selection"
+                        scaleTarget={0.9}
+                      >
+                        <Text style={[styles.planCountChipText, numSections === n && styles.planCountChipTextActive]}>{n}</Text>
+                      </PressableFeedback>
+                    ))}
+                  </View>
+
+                  {sections.map((s, i) => {
+                    const dotStyle = !hasMax ? styles.planDotGray : s.exceedsMax ? styles.planDotRed : styles.planDotGreen;
+                    const isLast = i === sections.length - 1;
+                    const label = s.sectionNumber === 1 ? 'Top piece' : isLast ? `Section ${s.sectionNumber} (butt)` : `Section ${s.sectionNumber}`;
+                    const cutLabel = isLast ? `Cut at ground level` : `Cut at ${s.cutHeightFt} ft · ~${s.diameterAtCutIn}" dia at cut`;
+                    return (
+                      <View key={s.sectionNumber} style={[styles.planRow, i % 2 === 1 && styles.planRowAlt, isLast && styles.planRowLast]}>
+                        <View style={[styles.planDot, dotStyle]} />
+                        <View style={styles.planLeft}>
+                          <Text style={styles.planSectionNum}>{label}</Text>
+                          <Text style={styles.planSectionDetail}>{cutLabel}</Text>
+                        </View>
+                        <View style={styles.planRight}>
+                          <Text style={[styles.planWeight, s.exceedsMax && styles.planWeightOver]}>
+                            {s.weightLbs.toLocaleString()} lbs
+                          </Text>
+                          <Text style={[styles.planStatus, !hasMax ? styles.planStatusNone : s.exceedsMax ? styles.planStatusOver : styles.planStatusOk]}>
+                            {!hasMax ? `${s.sectionLengthFt} ft` : s.exceedsMax ? '✕ Exceeds' : '✓ Safe'}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })()}
           </>
         );
       })()}

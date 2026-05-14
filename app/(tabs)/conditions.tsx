@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import NumericInput from '@/components/NumericInput';
 import ResultCard from '@/components/ResultCard';
 import SafetyBadge from '@/components/SafetyBadge';
 import { assessHeat, calcDaylight, dayOfYear } from '@/math/environmental';
 import { CITIES, MONTHS, City, nearestCity } from '@/data/locations';
+import { STATE_TO_REGION } from '@/data/speciesRanges';
 
 const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const UA = { 'User-Agent': 'ArboristCalc/1.0 (arborist field safety app)' };
@@ -146,6 +148,13 @@ export default function ConditionsScreen() {
         const nwsCity: string  = pJson.properties?.relativeLocation?.properties?.city  ?? '';
         const nwsState: string = pJson.properties?.relativeLocation?.properties?.state ?? '';
         if (nwsCity) setGpsLabel(`${nwsCity}, ${nwsState}`);
+
+        // Save two-letter state abbreviation so Weight/Anchor tabs can filter by region
+        const stateAbbr = pJson.properties?.relativeLocation?.properties?.state ?? '';
+        if (stateAbbr && STATE_TO_REGION[stateAbbr]) {
+          await AsyncStorage.setItem('arborist_detected_state', stateAbbr);
+          console.log(`[ArboristCalc] Region saved: ${stateAbbr} → ${STATE_TO_REGION[stateAbbr]}`);
+        }
 
         stationsUrl  = pJson.properties.observationStations ?? '';
         forecastUrl  = pJson.properties.forecastHourly      ?? '';

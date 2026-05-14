@@ -8,6 +8,7 @@ import SafetyBadge from '@/components/SafetyBadge';
 import { SPECIES, Species, Category, getByCategory } from '@/data/species';
 import { calcAnchor, DecayLevel, SafetyFactor } from '@/math/anchor';
 import { frozenWoodFactor, frozenWoodLabel } from '@/math/environmental';
+import { STATE_TO_REGION, SPECIES_REGIONS, REGION_LABELS, Region } from '@/data/speciesRanges';
 
 const DECAY_OPTIONS: { label: string; value: DecayLevel }[] = [
   { label: 'None', value: 'none' },
@@ -20,18 +21,23 @@ const SF_OPTIONS: { label: string; value: SafetyFactor }[] = [
   { label: 'Life Safety (5×)', value: 'lifeSafety' },
 ];
 
-export default function AnchorScreen() {
-  const [load, setLoad] = useState('');
-  const [momentArm, setMomentArm] = useState('1.0');
-  const [actualDiameter, setActualDiameter] = useState('');
-  const [category, setCategory] = useState<Category>('Hardwood');
-  const [species, setSpecies] = useState<Species>(SPECIES[0]);
-  const [decay, setDecay] = useState<DecayLevel>('none');
-  const [sf, setSf] = useState<SafetyFactor>('rigging');
-  const [tempF, setTempF] = useState('');
-  const [imported, setImported] = useState(false);
+interface CustomSpecies extends Species { isCustom: true; }
 
-  const filteredSpecies = getByCategory(category);
+export default function AnchorScreen() {
+  const [load, setLoad]                   = useState('');
+  const [momentArm, setMomentArm]         = useState('1.0');
+  const [actualDiameter, setActualDiameter] = useState('');
+  const [category, setCategory]           = useState<Category>('Hardwood');
+  const [species, setSpecies]             = useState<Species>(SPECIES[0]);
+  const [decay, setDecay]                 = useState<DecayLevel>('none');
+  const [sf, setSf]                       = useState<SafetyFactor>('rigging');
+  const [tempF, setTempF]                 = useState('');
+  const [imported, setImported]           = useState(false);
+
+  const [detectedRegion, setDetectedRegion] = useState<Region | null>(null);
+  const [showAll, setShowAll]               = useState(false);
+  const [customSpecies, setCustomSpecies]   = useState<CustomSpecies[]>([]);
+
   const handleCategoryChange = (cat: Category) => {
     setCategory(cat);
     setSpecies(getByCategory(cat)[0]);
@@ -41,15 +47,32 @@ export default function AnchorScreen() {
     AsyncStorage.getItem('crossModule_riggingLoadLbs').then(val => {
       if (val) { setLoad(val); setImported(true); }
     });
+    AsyncStorage.getItem('arborist_detected_state').then(state => {
+      if (state && STATE_TO_REGION[state]) setDetectedRegion(STATE_TO_REGION[state] as Region);
+    });
+    AsyncStorage.getItem('arborist_custom_species').then(raw => {
+      if (raw) { try { setCustomSpecies(JSON.parse(raw)); } catch {} }
+    });
   }, []);
 
+  const baseFiltered = getByCategory(category);
+  const regionFiltered = (detectedRegion && !showAll)
+    ? baseFiltered.filter(s => {
+        const regions = SPECIES_REGIONS[s.name];
+        return regions ? regions.includes(detectedRegion) : true;
+      })
+    : baseFiltered;
+
+  const customFiltered = customSpecies.filter(s => s.category === category);
+  const displaySpecies: Species[] = [...regionFiltered, ...customFiltered];
+
   const temp = parseFloat(tempF);
-  const tempFactor = !isNaN(temp) ? frozenWoodFactor(temp) : 1.0;
+  const tempFactor  = !isNaN(temp) ? frozenWoodFactor(temp) : 1.0;
   const adjustedMor = Math.round(species.morPsi * tempFactor);
 
   const result = (() => {
     try {
-      const l = parseFloat(load);
+      const l   = parseFloat(load);
       const arm = parseFloat(momentArm);
       const dia = parseFloat(actualDiameter);
       if (!l || !arm || !dia) return null;
@@ -83,6 +106,19 @@ export default function AnchorScreen() {
       )}
 
       <Text style={styles.sectionLabel}>Species (for MOR)</Text>
+
+      {/* Region banner */}
+      {detectedRegion && (
+        <View style={styles.regionBanner}>
+          <Text style={styles.regionBannerText}>
+            📍 {REGION_LABELS[detectedRegion]} species
+          </Text>
+          <TouchableOpacity onPress={() => setShowAll(v => !v)}>
+            <Text style={styles.regionToggle}>{showAll ? 'Show Regional' : 'Show All'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <SegmentedButtons
         value={category}
         onValueChange={v => handleCategoryChange(v as Category)}
@@ -90,15 +126,19 @@ export default function AnchorScreen() {
         style={styles.segment}
       />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-        {filteredSpecies.map(s => (
-          <TouchableOpacity
-            key={s.name}
-            style={[styles.chip, species.name === s.name && styles.chipActive]}
-            onPress={() => setSpecies(s)}
-          >
-            <Text style={[styles.chipText, species.name === s.name && styles.chipTextActive]}>{s.name}</Text>
-          </TouchableOpacity>
-        ))}
+        {displaySpecies.map(s => {
+          const isCustom = 'isCustom' in s;
+          const isActive = species.name === s.name;
+          return (
+            <TouchableOpacity
+              key={s.name}
+              style={[styles.chip, isActive && styles.chipActive, isCustom && !isActive && styles.chipCustom]}
+              onPress={() => setSpecies(s)}
+            >
+              <Text style={[styles.chipText, isActive && styles.chipTextActive]}>{s.name}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
       {species.notes && (
         <View style={styles.noteBox}>
@@ -142,27 +182,35 @@ export default function AnchorScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, paddingBottom: 40 },
+  container:    { padding: 16, paddingBottom: 40 },
   sectionLabel: { fontSize: 13, fontWeight: '600', color: '#555', marginTop: 16, marginBottom: 6 },
-  segment: { marginBottom: 8 },
-  chipRow: { flexDirection: 'row', marginBottom: 4 },
+  segment:      { marginBottom: 8 },
+  chipRow:      { flexDirection: 'row', marginBottom: 4 },
   chip: {
     paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
     backgroundColor: '#f0f0f0', marginRight: 8, marginBottom: 8,
   },
-  chipActive: { backgroundColor: '#2e7d32' },
-  chipText: { fontSize: 13, color: '#333' },
+  chipActive:  { backgroundColor: '#2e7d32' },
+  chipCustom:  { backgroundColor: '#e3f2fd', borderWidth: 1, borderColor: '#90caf9' },
+  chipText:    { fontSize: 13, color: '#333' },
   chipTextActive: { color: '#fff', fontWeight: '600' },
   importBanner: {
     backgroundColor: '#e3f2fd', borderRadius: 8, padding: 10,
     marginBottom: 12, borderWidth: 1, borderColor: '#90caf9',
   },
   importText: { fontSize: 13, color: '#1565c0', fontWeight: '600' },
+  regionBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#e8f5e9', borderRadius: 8, padding: 10, marginBottom: 8,
+    borderLeftWidth: 3, borderLeftColor: '#2e7d32',
+  },
+  regionBannerText: { fontSize: 12, color: '#2e7d32', fontWeight: '600', flex: 1 },
+  regionToggle:     { fontSize: 12, color: '#1565c0', fontWeight: '600', marginLeft: 8 },
   noteBox: {
     backgroundColor: '#f1f8e9', borderRadius: 8, padding: 10,
     marginBottom: 4, borderLeftWidth: 3, borderLeftColor: '#2e7d32',
   },
   noteBoxFrozen: { backgroundColor: '#e3f2fd', borderLeftColor: '#1565c0' },
-  noteText: { fontSize: 12, color: '#33691e', lineHeight: 18 },
+  noteText:      { fontSize: 12, color: '#33691e', lineHeight: 18 },
   noteTextFrozen: { color: '#1565c0' },
 });

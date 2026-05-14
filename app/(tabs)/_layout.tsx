@@ -1,32 +1,35 @@
 import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { C, T } from '@/theme';
+import { FF, T } from '@/theme';
+import { useTheme } from '@/context/ThemeContext';
 
 export default function TabLayout() {
+  const { colors: C, isDark } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#ffffff',
-        tabBarInactiveTintColor: 'rgba(255,255,255,0.45)',
+        tabBarInactiveTintColor: isDark ? 'rgba(255,255,255,0.40)' : 'rgba(255,255,255,0.45)',
         tabBarStyle: {
-          backgroundColor: C.green900,
+          backgroundColor: isDark ? '#0a3d0e' : C.green900,
           borderTopWidth: 0,
-          elevation: 8,
+          elevation: 10,
           shadowColor: '#000',
-          shadowOpacity: 0.18,
+          shadowOpacity: 0.22,
           shadowOffset: { width: 0, height: -2 },
-          shadowRadius: 6,
-          height: 62,
+          shadowRadius: 8,
+          height: 64,
           paddingBottom: 8,
         },
         tabBarLabelStyle: {
-          fontSize: T.xs + 1,
-          fontWeight: T.semibold,
+          fontSize: T.xs,
+          fontFamily: FF.semibold,
           letterSpacing: 0.2,
         },
-        headerStyle: { backgroundColor: C.green900 },
+        headerStyle: { backgroundColor: isDark ? '#0a3d0e' : C.green900 },
         headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: T.heavy, fontSize: T.lg, letterSpacing: 0.3 },
+        headerTitleStyle: { fontFamily: FF.heavy, fontSize: T.lg, letterSpacing: 0.3 },
         headerShadowVisible: false,
       }}
     >

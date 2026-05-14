@@ -47,6 +47,24 @@ Each calculator tab follows the same pattern: local state for inputs → derived
 
 ## Design Conventions
 
-Brand green: `#2e7d32`. Background: `#fafafa`. Card borders: `#e0e0e0`. Safety levels: green `#e8f5e9` / yellow `#fff8e1` / red `#ffebee`. All border-radius is 8–12px. Typography: 13–20px, weight 600–700 for labels/titles.
+Design system lives in `src/theme.ts`. Import `FF` (Inter font families), `T` (type scale), `R` (radii), `TOUCH_TARGET` (56), `lightC` / `darkC` (color palettes), `ColorPalette` (type).
+
+**Dark mode:** `ThemeContext` at `src/context/ThemeContext.tsx` — `useColors()` returns the active palette, `useTheme()` returns `{ colors, isDark, mode, setMode }`. Toggle lives in the Conditions tab. Mode persists in AsyncStorage under `arborist_theme_mode`.
+
+**Font:** Inter via `@expo-google-fonts/inter`. Font families in `FF`: `FF.normal` (Inter_400Regular), `FF.medium`, `FF.semibold`, `FF.bold`, `FF.heavy`. Loaded in `app/_layout.tsx` with `useFonts`. Use `fontFamily: FF.bold` in StyleSheet — do not pair with `fontWeight`.
+
+**Sizes:** Body 17pt (`T.base`), small labels 14pt (`T.sm`), CTAs 18pt (`T.md`). Touch targets: `minHeight: TOUCH_TARGET` (56dp) on all interactive inputs and buttons.
+
+**Shape:** Chips and CTAs use `borderRadius: R.pill` (999 — fully pill). Cards use `R.md` (12). Banners `R.md`.
+
+**Colors (light):** ISA green section labels `#1b5e20`, card bg `#ffffff`, page bg `#f5f4ee`. Safety orange CTA `#FF6600` (`C.ctaOrange`) for cross-module send buttons. OSHA safety badge colors in `C.safe{Green,Yellow,Red}{Bg,Text,Border}`.
+
+**Colors (dark):** Page `#121212`, card `#1e1e1e`, section labels `#c8e6c9` — these are lighter greens on dark surfaces for WCAG AAA.
+
+**Component pattern:** Each component / screen calls `const C = useColors()` and `const styles = useMemo(() => makeStyles(C), [C])` where `makeStyles(C: ColorPalette)` returns a `StyleSheet.create({...})`.
+
+**LegalBanner:** `src/components/LegalBanner.tsx` — accepts `stateCode: string | null`, reads from `stateLegality.ts`, shows OSHA type, license requirement, SF overrides, collapsible. Rendered at top of Weight, Rigging, and Anchor screens.
+
+**Cross-module send buttons:** Use `C.ctaOrange` (`#FF6600`) background, white text, `R.pill` radius, `TOUCH_TARGET` min height — standardized across all screens.
 
 > **For future Claude sessions:** After any task involving UI layout, component design, color/theme decisions, or screen architecture — update this **Design Conventions** section with the new decision, then save or update a memory file in `~/.claude/projects/-Users-christianlaire-Projects/memory/` capturing what was decided and why. Cross-reference the memory entry with this file so both stay in sync.

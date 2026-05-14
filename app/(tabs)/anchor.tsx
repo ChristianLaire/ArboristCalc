@@ -1,15 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { SegmentedButtons } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NumericInput from '@/components/NumericInput';
 import ResultCard from '@/components/ResultCard';
 import SafetyBadge from '@/components/SafetyBadge';
+import LegalBanner from '@/components/LegalBanner';
 import { SPECIES, Species, Category, getByCategory } from '@/data/species';
 import { calcAnchor, DecayLevel, SafetyFactor } from '@/math/anchor';
 import { frozenWoodFactor, frozenWoodLabel } from '@/math/environmental';
 import { STATE_TO_REGION, SPECIES_REGIONS, REGION_LABELS, Region } from '@/data/speciesRanges';
-import { C, T, R } from '@/theme';
+import { FF, T, R, TOUCH_TARGET, ColorPalette } from '@/theme';
+import { useColors } from '@/context/ThemeContext';
 import { useAutosave, loadAutosaved } from '@/hooks/useAutosave';
 
 type AnchorSave = { load: string; momentArm: string; actualDiameter: string; category: Category; speciesName: string; decay: DecayLevel; sf: SafetyFactor; tempF: string };
@@ -27,7 +29,52 @@ const SF_OPTIONS: { label: string; value: SafetyFactor }[] = [
 
 interface CustomSpecies extends Species { isCustom: true; }
 
+function makeStyles(C: ColorPalette) {
+  return StyleSheet.create({
+    screen:       { backgroundColor: C.bg },
+    container:    { padding: 16, paddingBottom: 56 },
+    sectionLabel: { fontSize: T.base, fontFamily: FF.bold, color: C.green900, marginTop: 20, marginBottom: 8 },
+    segment:      { marginBottom: 8 },
+
+    chipRow: { flexDirection: 'row', marginBottom: 4 },
+    chip: {
+      paddingHorizontal: 16, paddingVertical: 10, borderRadius: R.pill,
+      backgroundColor: C.card, marginRight: 8, marginBottom: 8,
+      borderWidth: 1.5, borderColor: C.border,
+    },
+    chipActive:  { backgroundColor: C.green900, borderColor: C.green900 },
+    chipCustom:  { backgroundColor: C.importBg, borderColor: C.importBorder },
+    chipText:    { fontSize: T.sm, fontFamily: FF.semibold, color: C.textMid },
+    chipTextActive: { color: '#fff', fontFamily: FF.bold },
+
+    importBanner: {
+      backgroundColor: C.importBg, borderRadius: R.md, padding: 13,
+      marginBottom: 16, borderLeftWidth: 4, borderLeftColor: C.importBorder,
+    },
+    importText: { fontSize: T.sm, fontFamily: FF.semibold, color: C.importText },
+
+    regionBanner: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: C.green50, borderRadius: R.md, padding: 11, marginBottom: 11,
+      borderLeftWidth: 4, borderLeftColor: C.green800,
+    },
+    regionBannerText: { fontSize: T.sm, fontFamily: FF.bold, color: C.green900, flex: 1 },
+    regionToggle:     { fontSize: T.sm, fontFamily: FF.bold, color: C.ctaOrange, marginLeft: 8 },
+
+    noteBox: {
+      backgroundColor: C.green50, borderRadius: R.md, padding: 12,
+      marginBottom: 6, borderLeftWidth: 4, borderLeftColor: C.green800,
+    },
+    noteBoxFrozen:  { backgroundColor: C.importBg, borderLeftColor: C.importBorder },
+    noteText:       { fontSize: T.sm, fontFamily: FF.normal, color: C.green900, lineHeight: 20 },
+    noteTextFrozen: { color: C.importText },
+  });
+}
+
 export default function AnchorScreen() {
+  const C = useColors();
+  const styles = useMemo(() => makeStyles(C), [C]);
+
   const [load, setLoad]                     = useState('');
   const [momentArm, setMomentArm]           = useState('1.0');
   const [actualDiameter, setActualDiameter] = useState('');
@@ -38,6 +85,7 @@ export default function AnchorScreen() {
   const [tempF, setTempF]                   = useState('');
   const [imported, setImported]             = useState(false);
 
+  const [detectedState, setDetectedState]   = useState<string | null>(null);
   const [detectedRegion, setDetectedRegion] = useState<Region | null>(null);
   const [showAll, setShowAll]               = useState(false);
   const [customSpecies, setCustomSpecies]   = useState<CustomSpecies[]>([]);
@@ -49,7 +97,6 @@ export default function AnchorScreen() {
 
   useEffect(() => {
     (async () => {
-      // Restore previous session
       const saved = await loadAutosaved<AnchorSave>('autosave_anchor');
       if (saved) {
         if (saved.momentArm)      setMomentArm(saved.momentArm);
@@ -61,13 +108,15 @@ export default function AnchorScreen() {
         const found = SPECIES.find(s => s.name === saved.speciesName);
         if (found)                setSpecies(found);
       }
-      // Cross-module import overrides the load field
       const crossModule = await AsyncStorage.getItem('crossModule_riggingLoadLbs');
       if (crossModule) { setLoad(crossModule); setImported(true); }
       else if (saved?.load) setLoad(saved.load);
 
       const state = await AsyncStorage.getItem('arborist_detected_state');
-      if (state && STATE_TO_REGION[state]) setDetectedRegion(STATE_TO_REGION[state] as Region);
+      if (state) {
+        setDetectedState(state);
+        if (STATE_TO_REGION[state]) setDetectedRegion(STATE_TO_REGION[state] as Region);
+      }
 
       const raw = await AsyncStorage.getItem('arborist_custom_species');
       if (raw) {
@@ -115,6 +164,8 @@ export default function AnchorScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container} style={styles.screen}>
+      <LegalBanner stateCode={detectedState} />
+
       {imported && (
         <View style={styles.importBanner}>
           <Text style={styles.importText}>⬆  Load imported from Rigging Calculator</Text>
@@ -207,43 +258,3 @@ export default function AnchorScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  screen:       { backgroundColor: C.bg },
-  container:    { padding: 16, paddingBottom: 48 },
-  sectionLabel: { fontSize: T.base, fontWeight: T.bold, color: C.green900, marginTop: 20, marginBottom: 8 },
-  segment:      { marginBottom: 8 },
-
-  chipRow: { flexDirection: 'row', marginBottom: 4 },
-  chip: {
-    paddingHorizontal: 14, paddingVertical: 9, borderRadius: R.xl,
-    backgroundColor: C.card, marginRight: 8, marginBottom: 8,
-    borderWidth: 1.5, borderColor: C.border,
-  },
-  chipActive:  { backgroundColor: C.green900, borderColor: C.green900 },
-  chipCustom:  { backgroundColor: '#e3f2fd', borderColor: '#90caf9' },
-  chipText:    { fontSize: T.sm, color: C.textMid, fontWeight: T.semibold },
-  chipTextActive: { color: '#fff', fontWeight: T.bold },
-
-  importBanner: {
-    backgroundColor: C.importBg, borderRadius: R.md, padding: 12,
-    marginBottom: 16, borderLeftWidth: 4, borderLeftColor: C.importBorder,
-  },
-  importText: { fontSize: T.base, color: C.importText, fontWeight: T.semibold },
-
-  regionBanner: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: C.green50, borderRadius: R.md, padding: 10, marginBottom: 10,
-    borderLeftWidth: 4, borderLeftColor: C.green800,
-  },
-  regionBannerText: { fontSize: T.sm, color: C.green900, fontWeight: T.bold, flex: 1 },
-  regionToggle:     { fontSize: T.sm, color: C.orange700, fontWeight: T.bold, marginLeft: 8 },
-
-  noteBox: {
-    backgroundColor: C.green50, borderRadius: R.md, padding: 11,
-    marginBottom: 6, borderLeftWidth: 4, borderLeftColor: C.green800,
-  },
-  noteBoxFrozen:  { backgroundColor: '#e3f2fd', borderLeftColor: '#1565c0' },
-  noteText:       { fontSize: T.sm, color: C.green900, lineHeight: 20 },
-  noteTextFrozen: { color: '#1565c0' },
-});

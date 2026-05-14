@@ -1,36 +1,84 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NumericInput from '@/components/NumericInput';
 import ResultCard from '@/components/ResultCard';
 import SafetyBadge from '@/components/SafetyBadge';
+import LegalBanner from '@/components/LegalBanner';
 import { DEFAULT_ROPES, Rope } from '@/data/ropes';
 import { calcRigging } from '@/math/rigging';
-import { C, T, R } from '@/theme';
+import { FF, T, R, TOUCH_TARGET, ColorPalette } from '@/theme';
+import { useColors } from '@/context/ThemeContext';
 import { useAutosave, loadAutosaved } from '@/hooks/useAutosave';
 
 type RiggingSave = { staticLoad: string; impactFactor: string; ropeAngle: string; ropeId: string };
 
+function makeStyles(C: ColorPalette) {
+  return StyleSheet.create({
+    screen:       { backgroundColor: C.bg },
+    container:    { padding: 16, paddingBottom: 56 },
+    sectionLabel: { fontSize: T.base, fontFamily: FF.bold, color: C.green900, marginTop: 20, marginBottom: 8 },
+
+    importBanner: {
+      backgroundColor: C.importBg, borderRadius: R.md, padding: 13,
+      marginBottom: 16, borderLeftWidth: 4, borderLeftColor: C.importBorder,
+    },
+    importText: { fontSize: T.sm, fontFamily: FF.semibold, color: C.importText },
+
+    ropeRow: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingVertical: 0, paddingHorizontal: 16,
+      minHeight: TOUCH_TARGET,
+      borderRadius: R.md, borderWidth: 1.5, borderColor: C.border,
+      backgroundColor: C.card, marginBottom: 10,
+    },
+    ropeRowActive: { backgroundColor: C.green900, borderColor: C.green900 },
+    ropeName:      { fontSize: T.base, fontFamily: FF.semibold, color: C.text },
+    ropeNameActive: { color: '#fff', fontFamily: FF.bold },
+
+    wllBadge: {
+      backgroundColor: C.bg, borderRadius: R.pill, paddingHorizontal: 12, paddingVertical: 5,
+    },
+    wllBadgeActive: { backgroundColor: C.green800 },
+    ropeWll:        { fontSize: T.sm, fontFamily: FF.semibold, color: C.textMid },
+    ropeWllActive:  { color: C.green100 },
+
+    sendBtn: {
+      marginTop: 14, backgroundColor: C.ctaOrange, borderRadius: R.pill,
+      paddingVertical: 0, minHeight: TOUCH_TARGET, alignItems: 'center', justifyContent: 'center',
+      elevation: 3, shadowColor: '#000', shadowOpacity: 0.15,
+      shadowOffset: { width: 0, height: 2 }, shadowRadius: 6,
+    },
+    sendBtnText: { color: '#fff', fontFamily: FF.bold, fontSize: T.md, letterSpacing: 0.3 },
+  });
+}
+
 export default function RiggingScreen() {
+  const C = useColors();
+  const styles = useMemo(() => makeStyles(C), [C]);
+
   const [staticLoad, setStaticLoad]     = useState('');
   const [impactFactor, setImpactFactor] = useState('2.0');
   const [ropeAngle, setRopeAngle]       = useState('90');
   const [selectedRope, setSelectedRope] = useState<Rope>(DEFAULT_ROPES[4]);
   const [imported, setImported]         = useState(false);
+  const [detectedState, setDetectedState] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      // Restore previous session first, then let cross-module import override load field
       const saved = await loadAutosaved<RiggingSave>('autosave_rigging');
       if (saved) {
-        if (saved.staticLoad)  setStaticLoad(saved.staticLoad);
+        if (saved.staticLoad)   setStaticLoad(saved.staticLoad);
         if (saved.impactFactor) setImpactFactor(saved.impactFactor);
-        if (saved.ropeAngle)   setRopeAngle(saved.ropeAngle);
+        if (saved.ropeAngle)    setRopeAngle(saved.ropeAngle);
         const rope = DEFAULT_ROPES.find(r => r.id === saved.ropeId);
         if (rope) setSelectedRope(rope);
       }
       const crossModule = await AsyncStorage.getItem('crossModule_weightLbs');
       if (crossModule) { setStaticLoad(crossModule); setImported(true); }
+
+      const state = await AsyncStorage.getItem('arborist_detected_state');
+      if (state) setDetectedState(state);
     })();
   }, []);
 
@@ -55,6 +103,8 @@ export default function RiggingScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container} style={styles.screen}>
+      <LegalBanner stateCode={detectedState} />
+
       {imported && (
         <View style={styles.importBanner}>
           <Text style={styles.importText}>⬆  Load imported from Weight Calculator</Text>
@@ -102,40 +152,3 @@ export default function RiggingScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  screen:       { backgroundColor: C.bg },
-  container:    { padding: 16, paddingBottom: 48 },
-  sectionLabel: { fontSize: T.base, fontWeight: T.bold, color: C.green900, marginTop: 20, marginBottom: 8 },
-
-  importBanner: {
-    backgroundColor: C.importBg, borderRadius: R.md, padding: 12,
-    marginBottom: 16, borderLeftWidth: 4, borderLeftColor: C.importBorder,
-  },
-  importText: { fontSize: T.base, color: C.importText, fontWeight: T.semibold },
-
-  ropeRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingVertical: 13, paddingHorizontal: 14,
-    borderRadius: R.md, borderWidth: 1.5, borderColor: C.border,
-    backgroundColor: C.card, marginBottom: 8,
-  },
-  ropeRowActive: { backgroundColor: C.green900, borderColor: C.green900 },
-  ropeName:      { fontSize: T.base, color: C.text, fontWeight: T.semibold },
-  ropeNameActive: { color: '#fff', fontWeight: T.bold },
-
-  wllBadge: {
-    backgroundColor: C.bg, borderRadius: R.xl, paddingHorizontal: 10, paddingVertical: 4,
-  },
-  wllBadgeActive: { backgroundColor: C.green800 },
-  ropeWll:        { fontSize: T.sm, color: C.textMid, fontWeight: T.semibold },
-  ropeWllActive:  { color: C.green100 },
-
-  sendBtn: {
-    marginTop: 14, backgroundColor: C.green900, borderRadius: R.md,
-    paddingVertical: 14, alignItems: 'center',
-    elevation: 2, shadowColor: '#000', shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 }, shadowRadius: 4,
-  },
-  sendBtnText: { color: '#fff', fontWeight: T.bold, fontSize: T.base, letterSpacing: 0.3 },
-});

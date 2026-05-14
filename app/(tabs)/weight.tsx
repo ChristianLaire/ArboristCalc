@@ -1,15 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, TextInput, Alert } from 'react-native';
 import { SegmentedButtons } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NumericInput from '@/components/NumericInput';
 import ResultCard from '@/components/ResultCard';
 import SafetyBadge from '@/components/SafetyBadge';
+import LegalBanner from '@/components/LegalBanner';
 import { SPECIES, Species, Condition, Category, getByCategory } from '@/data/species';
 import { calcLogWeight } from '@/math/weight';
 import { leafWeightLbs } from '@/math/environmental';
 import { STATE_TO_REGION, SPECIES_REGIONS, REGION_LABELS, Region } from '@/data/speciesRanges';
-import { C, T, R } from '@/theme';
+import { FF, T, R, TOUCH_TARGET, ColorPalette } from '@/theme';
+import { useColors } from '@/context/ThemeContext';
 import { useAutosave, loadAutosaved } from '@/hooks/useAutosave';
 
 type WeightSave = { mode: 'log'|'tree'; category: Category; speciesName: string; condition: Condition; dSmall: string; dLarge: string; length: string; dbh: string; height: string; inLeaf: boolean };
@@ -24,7 +26,94 @@ const CUSTOM_KEY = 'arborist_custom_species';
 
 interface CustomSpecies extends Species { isCustom: true; }
 
+function makeStyles(C: ColorPalette) {
+  return StyleSheet.create({
+    screen:    { backgroundColor: C.bg },
+    container: { padding: 16, paddingBottom: 56 },
+    sectionLabel: { fontSize: T.base, fontFamily: FF.bold, color: C.green900, marginTop: 20, marginBottom: 8 },
+    segment:      { marginBottom: 8 },
+
+    regionBanner: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      backgroundColor: C.green50, borderRadius: R.md, padding: 13, marginBottom: 16,
+      borderLeftWidth: 4, borderLeftColor: C.green800,
+    },
+    regionBannerText: { fontSize: T.sm, fontFamily: FF.bold, color: C.green900, flex: 1 },
+    regionToggle:     { fontSize: T.sm, fontFamily: FF.bold, color: C.ctaOrange, marginLeft: 8 },
+
+    speciesHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    addBtn: {
+      backgroundColor: C.green50, borderRadius: R.pill,
+      paddingHorizontal: 16, paddingVertical: 8,
+      borderWidth: 1.5, borderColor: C.green100,
+      minHeight: 36,
+    },
+    addBtnText: { fontSize: T.sm, fontFamily: FF.bold, color: C.green900 },
+
+    chipRow:    { flexDirection: 'row', marginBottom: 6 },
+    chipWrapper: { flexDirection: 'row', alignItems: 'flex-start', marginRight: 8, marginBottom: 8 },
+    chip: {
+      paddingHorizontal: 16, paddingVertical: 10, borderRadius: R.pill,
+      backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border,
+    },
+    chipActive:       { backgroundColor: C.green900, borderColor: C.green900 },
+    chipCustom:       { backgroundColor: C.importBg, borderColor: C.importBorder },
+    chipText:         { fontSize: T.sm, fontFamily: FF.semibold, color: C.textMid },
+    chipTextActive:   { color: '#fff', fontFamily: FF.bold },
+    chipDelete: {
+      marginLeft: -8, marginTop: -4,
+      backgroundColor: '#ef5350', borderRadius: 10,
+      width: 20, height: 20, alignItems: 'center', justifyContent: 'center',
+    },
+    chipDeleteText: { color: '#fff', fontSize: 10, fontFamily: FF.heavy, lineHeight: 20 },
+
+    noteBox: {
+      backgroundColor: C.green50, borderRadius: R.md, padding: 12,
+      marginBottom: 6, borderLeftWidth: 4, borderLeftColor: C.green800,
+    },
+    noteText: { fontSize: T.sm, fontFamily: FF.normal, color: C.green900, lineHeight: 20 },
+
+    sendBtn: {
+      marginTop: 14, backgroundColor: C.ctaOrange, borderRadius: R.pill,
+      paddingVertical: 0, minHeight: TOUCH_TARGET, alignItems: 'center', justifyContent: 'center',
+      elevation: 3, shadowColor: '#000', shadowOpacity: 0.15,
+      shadowOffset: { width: 0, height: 2 }, shadowRadius: 6,
+    },
+    sendBtnText: { color: '#fff', fontFamily: FF.bold, fontSize: T.md, letterSpacing: 0.3 },
+
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+    modalCard: {
+      backgroundColor: C.card, borderTopLeftRadius: R.lg, borderTopRightRadius: R.lg,
+      padding: 22, paddingBottom: 40,
+    },
+    modalTitle:  { fontSize: T.lg, fontFamily: FF.heavy, color: C.text, marginBottom: 16 },
+    modalLabel:  { fontSize: T.sm, fontFamily: FF.bold, color: C.green900, marginTop: 14, marginBottom: 6 },
+    modalInput: {
+      borderWidth: 1.5, borderColor: C.borderMid, borderRadius: R.md,
+      paddingHorizontal: 14, paddingVertical: 0,
+      minHeight: TOUCH_TARGET, fontSize: T.base, fontFamily: FF.medium,
+      color: C.text, backgroundColor: C.stripe,
+    },
+    modalInputMulti: { height: 80, textAlignVertical: 'top', paddingVertical: 12 },
+    modalButtons:    { flexDirection: 'row', marginTop: 22, gap: 12 },
+    modalCancel: {
+      flex: 1, borderRadius: R.pill, minHeight: TOUCH_TARGET, alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: C.bg, borderWidth: 1.5, borderColor: C.border,
+    },
+    modalCancelText: { fontSize: T.base, fontFamily: FF.bold, color: C.textMid },
+    modalSave: {
+      flex: 1, borderRadius: R.pill, minHeight: TOUCH_TARGET, alignItems: 'center',
+      justifyContent: 'center', backgroundColor: C.green900,
+    },
+    modalSaveText: { fontSize: T.base, fontFamily: FF.bold, color: '#fff' },
+  });
+}
+
 export default function WeightScreen() {
+  const C = useColors();
+  const styles = useMemo(() => makeStyles(C), [C]);
+
   const [mode, setMode]           = useState<'log' | 'tree'>('log');
   const [category, setCategory]   = useState<Category>('Hardwood');
   const [species, setSpecies]     = useState<Species>(SPECIES[0]);
@@ -38,6 +127,7 @@ export default function WeightScreen() {
   const [height, setHeight] = useState('');
   const [inLeaf, setInLeaf] = useState(true);
 
+  const [detectedState, setDetectedState]   = useState<string | null>(null);
   const [detectedRegion, setDetectedRegion] = useState<Region | null>(null);
   const [showAll, setShowAll]               = useState(false);
   const [customSpecies, setCustomSpecies]   = useState<CustomSpecies[]>([]);
@@ -51,7 +141,6 @@ export default function WeightScreen() {
   useEffect(() => { loadRegionAndCustom(); }, []);
 
   async function loadRegionAndCustom() {
-    // Load autosaved inputs first
     const saved = await loadAutosaved<WeightSave>('autosave_weight');
     if (saved) {
       if (saved.mode)     setMode(saved.mode);
@@ -68,14 +157,16 @@ export default function WeightScreen() {
     }
 
     const state = await AsyncStorage.getItem('arborist_detected_state');
-    if (state && STATE_TO_REGION[state]) setDetectedRegion(STATE_TO_REGION[state] as Region);
+    if (state) {
+      setDetectedState(state);
+      if (STATE_TO_REGION[state]) setDetectedRegion(STATE_TO_REGION[state] as Region);
+    }
 
     const raw = await AsyncStorage.getItem(CUSTOM_KEY);
     if (raw) {
       try {
         const custom = JSON.parse(raw);
         setCustomSpecies(custom);
-        // If saved species is a custom one, set it now that we have the list
         if (saved?.speciesName && !SPECIES.find(s => s.name === saved.speciesName)) {
           const found = custom.find((s: CustomSpecies) => s.name === saved.speciesName);
           if (found) setSpecies(found);
@@ -120,8 +211,8 @@ export default function WeightScreen() {
     ]);
   }
 
-  const baseFiltered     = getByCategory(category);
-  const regionFiltered   = (detectedRegion && !showAll)
+  const baseFiltered   = getByCategory(category);
+  const regionFiltered = (detectedRegion && !showAll)
     ? baseFiltered.filter(s => {
         const regions = SPECIES_REGIONS[s.name];
         return regions ? regions.includes(detectedRegion) : true;
@@ -161,6 +252,8 @@ export default function WeightScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container} style={styles.screen}>
+
+      <LegalBanner stateCode={detectedState} />
 
       {detectedRegion && (
         <View style={styles.regionBanner}>
@@ -349,82 +442,3 @@ export default function WeightScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  screen:    { backgroundColor: C.bg },
-  container: { padding: 16, paddingBottom: 48 },
-  sectionLabel: { fontSize: T.base, fontWeight: T.bold, color: C.green900, marginTop: 20, marginBottom: 8 },
-  segment:      { marginBottom: 8 },
-
-  regionBanner: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: C.green50, borderRadius: R.md, padding: 11, marginBottom: 16,
-    borderLeftWidth: 4, borderLeftColor: C.green800,
-  },
-  regionBannerText: { fontSize: T.sm, color: C.green900, fontWeight: T.bold, flex: 1 },
-  regionToggle:     { fontSize: T.sm, color: C.orange700, fontWeight: T.bold, marginLeft: 8 },
-
-  speciesHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  addBtn: {
-    backgroundColor: C.green50, borderRadius: R.xl,
-    paddingHorizontal: 14, paddingVertical: 6,
-    borderWidth: 1.5, borderColor: C.green100,
-  },
-  addBtnText: { fontSize: T.sm, color: C.green900, fontWeight: T.bold },
-
-  chipRow:    { flexDirection: 'row', marginBottom: 6 },
-  chipWrapper: { flexDirection: 'row', alignItems: 'flex-start', marginRight: 8, marginBottom: 8 },
-  chip: {
-    paddingHorizontal: 14, paddingVertical: 9, borderRadius: R.xl,
-    backgroundColor: C.card, borderWidth: 1.5, borderColor: C.border,
-  },
-  chipActive:       { backgroundColor: C.green900, borderColor: C.green900 },
-  chipCustom:       { backgroundColor: '#e3f2fd', borderColor: '#90caf9' },
-  chipText:         { fontSize: T.sm, color: C.textMid, fontWeight: T.semibold },
-  chipTextActive:   { color: '#fff', fontWeight: T.bold },
-  chipDelete: {
-    marginLeft: -8, marginTop: -4,
-    backgroundColor: '#ef5350', borderRadius: 10,
-    width: 18, height: 18, alignItems: 'center', justifyContent: 'center',
-  },
-  chipDeleteText: { color: '#fff', fontSize: 10, fontWeight: T.heavy, lineHeight: 18 },
-
-  noteBox: {
-    backgroundColor: C.green50, borderRadius: R.md, padding: 11,
-    marginBottom: 6, borderLeftWidth: 4, borderLeftColor: C.green800,
-  },
-  noteText: { fontSize: T.sm, color: C.green900, lineHeight: 20 },
-
-  sendBtn: {
-    marginTop: 14, backgroundColor: C.green900, borderRadius: R.md,
-    paddingVertical: 14, alignItems: 'center',
-    elevation: 2, shadowColor: '#000', shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 }, shadowRadius: 4,
-  },
-  sendBtnText: { color: '#fff', fontWeight: T.bold, fontSize: T.base, letterSpacing: 0.3 },
-
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
-  modalCard: {
-    backgroundColor: C.card, borderTopLeftRadius: R.lg, borderTopRightRadius: R.lg,
-    padding: 22, paddingBottom: 38,
-  },
-  modalTitle:  { fontSize: T.lg, fontWeight: T.heavy, color: C.text, marginBottom: 16 },
-  modalLabel:  { fontSize: T.sm, fontWeight: T.bold, color: C.green900, marginTop: 12, marginBottom: 5 },
-  modalInput: {
-    borderWidth: 1.5, borderColor: C.borderMid, borderRadius: R.md,
-    paddingHorizontal: 14, paddingVertical: 11,
-    fontSize: T.base, color: C.text, backgroundColor: C.stripe,
-  },
-  modalInputMulti: { height: 72, textAlignVertical: 'top' },
-  modalButtons:    { flexDirection: 'row', marginTop: 20, gap: 12 },
-  modalCancel: {
-    flex: 1, borderRadius: R.md, paddingVertical: 13, alignItems: 'center',
-    backgroundColor: C.bg, borderWidth: 1.5, borderColor: C.border,
-  },
-  modalCancelText: { fontSize: T.base, fontWeight: T.bold, color: C.textMid },
-  modalSave: {
-    flex: 1, borderRadius: R.md, paddingVertical: 13, alignItems: 'center',
-    backgroundColor: C.green900,
-  },
-  modalSaveText: { fontSize: T.base, fontWeight: T.bold, color: '#fff' },
-});

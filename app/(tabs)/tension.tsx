@@ -1,23 +1,34 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Text, ScrollView, StyleSheet } from 'react-native';
 import { SegmentedButtons } from 'react-native-paper';
 import NumericInput from '@/components/NumericInput';
 import ResultCard from '@/components/ResultCard';
 import SafetyBadge from '@/components/SafetyBadge';
 import { calcSlingTension, calcMechanicalAdvantage, MaSystem } from '@/math/tension';
-import { C, T } from '@/theme';
+import { FF, T, ColorPalette } from '@/theme';
+import { useColors } from '@/context/ThemeContext';
 import { useAutosave, loadAutosaved } from '@/hooks/useAutosave';
 
 type TensionSave = { subMode: 'sling' | 'ma'; load: string; angle: string; maLoad: string; maSystem: MaSystem; efficiency: string };
 
 const MA_SYSTEMS: MaSystem[] = ['2:1', '3:1', '4:1'];
 
-export default function TensionScreen() {
-  const [subMode, setSubMode] = useState<'sling' | 'ma'>('sling');
+function makeStyles(C: ColorPalette) {
+  return StyleSheet.create({
+    screen:       { backgroundColor: C.bg },
+    container:    { padding: 16, paddingBottom: 56 },
+    sectionLabel: { fontSize: T.base, fontFamily: FF.bold, color: C.green900, marginTop: 20, marginBottom: 8 },
+    segment:      { marginBottom: 8 },
+  });
+}
 
+export default function TensionScreen() {
+  const C = useColors();
+  const styles = useMemo(() => makeStyles(C), [C]);
+
+  const [subMode, setSubMode] = useState<'sling' | 'ma'>('sling');
   const [load, setLoad]   = useState('');
   const [angle, setAngle] = useState('');
-
   const [maLoad, setMaLoad]         = useState('');
   const [maSystem, setMaSystem]     = useState<MaSystem>('3:1');
   const [efficiency, setEfficiency] = useState('85');
@@ -99,9 +110,9 @@ export default function TensionScreen() {
               <ResultCard
                 title="Mechanical Advantage"
                 rows={[
-                  { label: 'System',         value: maSystem },
-                  { label: 'Actual MA',       value: `${maResult.actualMa.toFixed(2)}:1` },
-                  { label: 'Hauling Force',   value: `${maResult.haulingForceLbs.toFixed(0)} lbs` },
+                  { label: 'System',       value: maSystem },
+                  { label: 'Actual MA',    value: `${maResult.actualMa.toFixed(2)}:1` },
+                  { label: 'Hauling Force', value: `${maResult.haulingForceLbs.toFixed(0)} lbs` },
                 ]}
               />
               <SafetyBadge level={maResult.level} message={maResult.message} />
@@ -112,10 +123,3 @@ export default function TensionScreen() {
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  screen:       { backgroundColor: C.bg },
-  container:    { padding: 16, paddingBottom: 48 },
-  sectionLabel: { fontSize: T.base, fontWeight: T.bold, color: C.green900, marginTop: 20, marginBottom: 8 },
-  segment:      { marginBottom: 8 },
-});

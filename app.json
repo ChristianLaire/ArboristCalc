@@ -34,7 +34,8 @@
         {
           "locationWhenInUsePermission": "ArboristCalc needs your location to show current weather conditions and accurate daylight hours for your job site."
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }

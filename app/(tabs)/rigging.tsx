@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NumericInput from '@/components/NumericInput';
 import ResultCard from '@/components/ResultCard';
 import SafetyBadge from '@/components/SafetyBadge';
 import LegalBanner from '@/components/LegalBanner';
+import PressableFeedback from '@/components/PressableFeedback';
 import { DEFAULT_ROPES, Rope } from '@/data/ropes';
 import { calcRigging } from '@/math/rigging';
 import { FF, T, R, TOUCH_TARGET, ColorPalette } from '@/theme';
@@ -27,8 +28,7 @@ function makeStyles(C: ColorPalette) {
 
     ropeRow: {
       flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-      paddingVertical: 0, paddingHorizontal: 16,
-      minHeight: TOUCH_TARGET,
+      paddingHorizontal: 16, minHeight: TOUCH_TARGET,
       borderRadius: R.md, borderWidth: 1.5, borderColor: C.border,
       backgroundColor: C.card, marginBottom: 10,
     },
@@ -117,10 +117,12 @@ export default function RiggingScreen() {
 
       <Text style={styles.sectionLabel}>Rope / Line</Text>
       {DEFAULT_ROPES.filter(r => r.type === 'Rigging').map(r => (
-        <TouchableOpacity
+        <PressableFeedback
           key={r.id}
           style={[styles.ropeRow, selectedRope.id === r.id && styles.ropeRowActive]}
           onPress={() => setSelectedRope(r)}
+          haptic="selection"
+          scaleTarget={0.97}
         >
           <Text style={[styles.ropeName, selectedRope.id === r.id && styles.ropeNameActive]}>{r.name}</Text>
           <View style={[styles.wllBadge, selectedRope.id === r.id && styles.wllBadgeActive]}>
@@ -128,7 +130,7 @@ export default function RiggingScreen() {
               WLL {r.wllLbs.toLocaleString()} lbs
             </Text>
           </View>
-        </TouchableOpacity>
+        </PressableFeedback>
       ))}
 
       {result && (
@@ -144,9 +146,9 @@ export default function RiggingScreen() {
             ]}
           />
           <SafetyBadge level={result.level} message={result.message} />
-          <TouchableOpacity style={styles.sendBtn} onPress={sendToAnchor}>
+          <PressableFeedback style={styles.sendBtn} onPress={sendToAnchor} haptic="medium">
             <Text style={styles.sendBtnText}>→  Use in Anchor Calculator</Text>
-          </TouchableOpacity>
+          </PressableFeedback>
         </>
       )}
     </ScrollView>

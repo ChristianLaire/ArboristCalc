@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import PressableFeedback from '@/components/PressableFeedback';
 import * as Location from 'expo-location';
 import NumericInput from '@/components/NumericInput';
 import ResultCard from '@/components/ResultCard';
@@ -295,15 +296,17 @@ export default function ConditionsScreen() {
         </View>
         <View style={styles.themeButtons}>
           {MODE_CYCLE.map(m => (
-            <TouchableOpacity
+            <PressableFeedback
               key={m}
               style={[styles.themeBtn, mode === m && styles.themeBtnActive]}
               onPress={() => setMode(m)}
+              haptic="selection"
+              scaleTarget={0.90}
             >
               <Text style={[styles.themeBtnText, mode === m && styles.themeBtnTextActive]}>
                 {MODE_ICONS[m]}
               </Text>
-            </TouchableOpacity>
+            </PressableFeedback>
           ))}
         </View>
       </View>
@@ -325,9 +328,9 @@ export default function ConditionsScreen() {
           ) : null}
 
           {weatherStatus !== 'loading' && (
-            <TouchableOpacity onPress={fetchLocationAndWeather} style={styles.retryBtn}>
+            <PressableFeedback style={styles.retryBtn} onPress={fetchLocationAndWeather} haptic="light" scaleTarget={0.92}>
               <Text style={styles.retryText}>↻ Refresh</Text>
-            </TouchableOpacity>
+            </PressableFeedback>
           )}
         </View>
 
@@ -384,15 +387,16 @@ export default function ConditionsScreen() {
           />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
             {filteredCities.slice(0, 40).map(c => (
-              <TouchableOpacity
+              <PressableFeedback
                 key={`${c.name}-${c.state}`}
                 style={[styles.chip, selectedCity.name === c.name && selectedCity.state === c.state && styles.chipActive]}
                 onPress={() => setSelectedCity(c)}
+                haptic="selection"
               >
                 <Text style={[styles.chipText, selectedCity.name === c.name && selectedCity.state === c.state && styles.chipTextActive]}>
                   {c.name}, {c.state}
                 </Text>
-              </TouchableOpacity>
+              </PressableFeedback>
             ))}
           </ScrollView>
           {filteredCities.length > 40 && (
@@ -405,13 +409,14 @@ export default function ConditionsScreen() {
       <Text style={styles.sectionLabel}>Month</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
         {MONTHS.map((m, i) => (
-          <TouchableOpacity
+          <PressableFeedback
             key={m}
             style={[styles.chip, monthIdx === i && styles.chipActive]}
             onPress={() => setMonthIdx(i)}
+            haptic="selection"
           >
             <Text style={[styles.chipText, monthIdx === i && styles.chipTextActive]}>{m.slice(0, 3)}</Text>
-          </TouchableOpacity>
+          </PressableFeedback>
         ))}
       </ScrollView>
 

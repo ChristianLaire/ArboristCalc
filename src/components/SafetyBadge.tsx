@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { useRef, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { FF, T, R, ColorPalette } from '@/theme';
 import { useColors } from '@/context/ThemeContext';
 
@@ -54,11 +54,27 @@ export default function SafetyBadge({ level, message }: Props) {
   const { CONFIG, base } = useMemo(() => makeStyles(C), [C]);
   const c = CONFIG[level];
 
+  const opacity    = useRef(new Animated.Value(0)).current;
+  const translateX = useRef(new Animated.Value(-10)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1, duration: 220, useNativeDriver: true,
+      }),
+      Animated.spring(translateX, {
+        toValue: 0, tension: 300, friction: 24, useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
   return (
-    <View style={[base.badge, { backgroundColor: c.bg }]}>
-      <View style={[base.bar, { backgroundColor: c.bar }]} />
-      <Text style={[base.icon, { color: c.bar }]}>{c.icon}</Text>
-      <Text style={[base.text, { color: c.text }]}>{message}</Text>
-    </View>
+    <Animated.View style={{ opacity, transform: [{ translateX }] }}>
+      <View style={[base.badge, { backgroundColor: c.bg }]}>
+        <View style={[base.bar, { backgroundColor: c.bar }]} />
+        <Text style={[base.icon, { color: c.bar }]}>{c.icon}</Text>
+        <Text style={[base.text, { color: c.text }]}>{message}</Text>
+      </View>
+    </Animated.View>
   );
 }

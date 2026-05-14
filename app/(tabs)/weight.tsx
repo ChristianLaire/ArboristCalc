@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Modal, TextInput, Alert } from 'react-native';
 import { SegmentedButtons } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NumericInput from '@/components/NumericInput';
 import ResultCard from '@/components/ResultCard';
 import SafetyBadge from '@/components/SafetyBadge';
 import LegalBanner from '@/components/LegalBanner';
+import PressableFeedback from '@/components/PressableFeedback';
 import { SPECIES, Species, Condition, Category, getByCategory } from '@/data/species';
 import { calcLogWeight } from '@/math/weight';
 import { leafWeightLbs } from '@/math/environmental';
@@ -39,7 +40,6 @@ function makeStyles(C: ColorPalette) {
       borderLeftWidth: 4, borderLeftColor: C.green800,
     },
     regionBannerText: { fontSize: T.sm, fontFamily: FF.bold, color: C.green900, flex: 1 },
-    regionToggle:     { fontSize: T.sm, fontFamily: FF.bold, color: C.ctaOrange, marginLeft: 8 },
 
     speciesHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     addBtn: {
@@ -49,6 +49,12 @@ function makeStyles(C: ColorPalette) {
       minHeight: 36,
     },
     addBtnText: { fontSize: T.sm, fontFamily: FF.bold, color: C.green900 },
+
+    regionToggleBtn: {
+      paddingHorizontal: 12, paddingVertical: 6, borderRadius: R.pill,
+      backgroundColor: 'rgba(0,0,0,0.06)',
+    },
+    regionToggleText: { fontSize: T.sm, fontFamily: FF.bold, color: C.ctaOrange },
 
     chipRow:    { flexDirection: 'row', marginBottom: 6 },
     chipWrapper: { flexDirection: 'row', alignItems: 'flex-start', marginRight: 8, marginBottom: 8 },
@@ -143,15 +149,15 @@ export default function WeightScreen() {
   async function loadRegionAndCustom() {
     const saved = await loadAutosaved<WeightSave>('autosave_weight');
     if (saved) {
-      if (saved.mode)     setMode(saved.mode);
+      if (saved.mode)      setMode(saved.mode);
       if (saved.condition) setCondition(saved.condition);
-      if (saved.dSmall)   setDSmall(saved.dSmall);
-      if (saved.dLarge)   setDLarge(saved.dLarge);
-      if (saved.length)   setLength(saved.length);
-      if (saved.dbh)      setDbh(saved.dbh);
-      if (saved.height)   setHeight(saved.height);
+      if (saved.dSmall)    setDSmall(saved.dSmall);
+      if (saved.dLarge)    setDLarge(saved.dLarge);
+      if (saved.length)    setLength(saved.length);
+      if (saved.dbh)       setDbh(saved.dbh);
+      if (saved.height)    setHeight(saved.height);
       setInLeaf(saved.inLeaf ?? true);
-      if (saved.category) setCategory(saved.category);
+      if (saved.category)  setCategory(saved.category);
       const found = SPECIES.find(s => s.name === saved.speciesName);
       if (found) setSpecies(found);
     }
@@ -183,9 +189,9 @@ export default function WeightScreen() {
   function addCustomSpecies() {
     const density = parseFloat(newGreenDensity);
     const mor     = parseFloat(newMor);
-    if (!newName.trim())              { Alert.alert('Name required'); return; }
+    if (!newName.trim())                { Alert.alert('Name required'); return; }
     if (isNaN(density) || density <= 0) { Alert.alert('Enter a valid green density (lbs/ft³)'); return; }
-    if (isNaN(mor) || mor <= 0)       { Alert.alert('Enter a valid MOR (psi)'); return; }
+    if (isNaN(mor) || mor <= 0)         { Alert.alert('Enter a valid MOR (psi)'); return; }
     const entry: CustomSpecies = {
       name: newName.trim(), category: newCategory,
       greenLbsPerFt3: density,
@@ -260,9 +266,14 @@ export default function WeightScreen() {
           <Text style={styles.regionBannerText}>
             📍 Showing species common to {REGION_LABELS[detectedRegion]}
           </Text>
-          <TouchableOpacity onPress={() => setShowAll(v => !v)}>
-            <Text style={styles.regionToggle}>{showAll ? 'Show Regional' : 'Show All'}</Text>
-          </TouchableOpacity>
+          <PressableFeedback
+            style={styles.regionToggleBtn}
+            onPress={() => setShowAll(v => !v)}
+            haptic="selection"
+            scaleTarget={0.92}
+          >
+            <Text style={styles.regionToggleText}>{showAll ? 'Show Regional' : 'Show All'}</Text>
+          </PressableFeedback>
         </View>
       )}
 
@@ -286,9 +297,9 @@ export default function WeightScreen() {
         <Text style={styles.sectionLabel}>
           Species{detectedRegion && !showAll ? ` (${displaySpecies.length - customFiltered.length} regional)` : ''}
         </Text>
-        <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
+        <PressableFeedback style={styles.addBtn} onPress={() => setModalVisible(true)} haptic="light">
           <Text style={styles.addBtnText}>+ Custom</Text>
-        </TouchableOpacity>
+        </PressableFeedback>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
@@ -297,16 +308,22 @@ export default function WeightScreen() {
           const isActive = species.name === s.name;
           return (
             <View key={s.name} style={styles.chipWrapper}>
-              <TouchableOpacity
+              <PressableFeedback
                 style={[styles.chip, isActive && styles.chipActive, isCustom && !isActive && styles.chipCustom]}
                 onPress={() => setSpecies(s)}
+                haptic="selection"
               >
                 <Text style={[styles.chipText, isActive && styles.chipTextActive]}>{s.name}</Text>
-              </TouchableOpacity>
+              </PressableFeedback>
               {isCustom && (
-                <TouchableOpacity style={styles.chipDelete} onPress={() => removeCustomSpecies(s.name)}>
+                <PressableFeedback
+                  style={styles.chipDelete}
+                  onPress={() => removeCustomSpecies(s.name)}
+                  haptic="medium"
+                  scaleTarget={0.88}
+                >
                   <Text style={styles.chipDeleteText}>✕</Text>
-                </TouchableOpacity>
+                </PressableFeedback>
               )}
             </View>
           );
@@ -368,14 +385,13 @@ export default function WeightScreen() {
               ]}
             />
             <SafetyBadge level="green" message={`${totalWt.toFixed(0)} lbs total — tap below to send to Rigging`} />
-            <TouchableOpacity style={styles.sendBtn} onPress={sendToRigging}>
+            <PressableFeedback style={styles.sendBtn} onPress={sendToRigging} haptic="medium">
               <Text style={styles.sendBtnText}>→  Use in Rigging Calculator</Text>
-            </TouchableOpacity>
+            </PressableFeedback>
           </>
         );
       })()}
 
-      {/* ── Custom Species Modal ─────────────────────────── */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -429,12 +445,12 @@ export default function WeightScreen() {
             />
 
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.modalCancel} onPress={() => setModalVisible(false)}>
+              <PressableFeedback style={styles.modalCancel} onPress={() => setModalVisible(false)} haptic="light">
                 <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalSave} onPress={addCustomSpecies}>
+              </PressableFeedback>
+              <PressableFeedback style={styles.modalSave} onPress={addCustomSpecies} haptic="medium">
                 <Text style={styles.modalSaveText}>Add Species</Text>
-              </TouchableOpacity>
+              </PressableFeedback>
             </View>
           </View>
         </View>

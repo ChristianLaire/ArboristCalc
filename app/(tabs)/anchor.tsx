@@ -1,16 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { SegmentedButtons } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NumericInput from '@/components/NumericInput';
 import ResultCard from '@/components/ResultCard';
 import SafetyBadge from '@/components/SafetyBadge';
 import LegalBanner from '@/components/LegalBanner';
+import PressableFeedback from '@/components/PressableFeedback';
 import { SPECIES, Species, Category, getByCategory } from '@/data/species';
 import { calcAnchor, DecayLevel, SafetyFactor } from '@/math/anchor';
 import { frozenWoodFactor, frozenWoodLabel } from '@/math/environmental';
 import { STATE_TO_REGION, SPECIES_REGIONS, REGION_LABELS, Region } from '@/data/speciesRanges';
-import { FF, T, R, TOUCH_TARGET, ColorPalette } from '@/theme';
+import { FF, T, R, ColorPalette } from '@/theme';
 import { useColors } from '@/context/ThemeContext';
 import { useAutosave, loadAutosaved } from '@/hooks/useAutosave';
 
@@ -59,7 +60,11 @@ function makeStyles(C: ColorPalette) {
       borderLeftWidth: 4, borderLeftColor: C.green800,
     },
     regionBannerText: { fontSize: T.sm, fontFamily: FF.bold, color: C.green900, flex: 1 },
-    regionToggle:     { fontSize: T.sm, fontFamily: FF.bold, color: C.ctaOrange, marginLeft: 8 },
+    regionToggleBtn: {
+      paddingHorizontal: 12, paddingVertical: 6, borderRadius: R.pill,
+      backgroundColor: 'rgba(0,0,0,0.06)',
+    },
+    regionToggleText: { fontSize: T.sm, fontFamily: FF.bold, color: C.ctaOrange },
 
     noteBox: {
       backgroundColor: C.green50, borderRadius: R.md, padding: 12,
@@ -106,7 +111,7 @@ export default function AnchorScreen() {
         if (saved.tempF)          setTempF(saved.tempF);
         if (saved.category)       setCategory(saved.category);
         const found = SPECIES.find(s => s.name === saved.speciesName);
-        if (found)                setSpecies(found);
+        if (found) setSpecies(found);
       }
       const crossModule = await AsyncStorage.getItem('crossModule_riggingLoadLbs');
       if (crossModule) { setLoad(crossModule); setImported(true); }
@@ -191,9 +196,14 @@ export default function AnchorScreen() {
       {detectedRegion && (
         <View style={styles.regionBanner}>
           <Text style={styles.regionBannerText}>📍 {REGION_LABELS[detectedRegion]} species</Text>
-          <TouchableOpacity onPress={() => setShowAll(v => !v)}>
-            <Text style={styles.regionToggle}>{showAll ? 'Show Regional' : 'Show All'}</Text>
-          </TouchableOpacity>
+          <PressableFeedback
+            style={styles.regionToggleBtn}
+            onPress={() => setShowAll(v => !v)}
+            haptic="selection"
+            scaleTarget={0.92}
+          >
+            <Text style={styles.regionToggleText}>{showAll ? 'Show Regional' : 'Show All'}</Text>
+          </PressableFeedback>
         </View>
       )}
 
@@ -208,13 +218,14 @@ export default function AnchorScreen() {
           const isCustom = 'isCustom' in s;
           const isActive = species.name === s.name;
           return (
-            <TouchableOpacity
+            <PressableFeedback
               key={s.name}
               style={[styles.chip, isActive && styles.chipActive, isCustom && !isActive && styles.chipCustom]}
               onPress={() => setSpecies(s)}
+              haptic="selection"
             >
               <Text style={[styles.chipText, isActive && styles.chipTextActive]}>{s.name}</Text>
-            </TouchableOpacity>
+            </PressableFeedback>
           );
         })}
       </ScrollView>
@@ -245,11 +256,11 @@ export default function AnchorScreen() {
           <ResultCard
             title="Anchor Rating"
             rows={[
-              { label: 'Required Diameter',     value: `${result.requiredDiameterIn.toFixed(2)} in` },
-              { label: 'Effective Diameter',    value: `${result.effectiveDiameterIn.toFixed(2)} in` },
+              { label: 'Required Diameter',       value: `${result.requiredDiameterIn.toFixed(2)} in` },
+              { label: 'Effective Diameter',      value: `${result.effectiveDiameterIn.toFixed(2)} in` },
               { label: 'Ratio (actual/required)', value: `${result.ratio.toFixed(2)}×` },
               { label: 'MOR used', value: `${adjustedMor.toLocaleString()} psi${tempFactor > 1 ? ` (×${tempFactor.toFixed(2)} frozen)` : ''}` },
-              { label: 'Safety Factor',         value: sf === 'rigging' ? '3.0×' : '5.0×' },
+              { label: 'Safety Factor',           value: sf === 'rigging' ? '3.0×' : '5.0×' },
             ]}
           />
           <SafetyBadge level={result.level} message={result.message} />

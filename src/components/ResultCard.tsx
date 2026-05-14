@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { useRef, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { FF, T, R, ColorPalette } from '@/theme';
 import { useColors } from '@/context/ThemeContext';
 
@@ -80,18 +80,34 @@ export default function ResultCard({ title, rows }: Props) {
   const C = useColors();
   const styles = useMemo(() => makeStyles(C), [C]);
 
+  const opacity    = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(14)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1, duration: 260, useNativeDriver: true,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0, tension: 280, friction: 26, useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
   return (
-    <View style={styles.card}>
-      <View style={styles.titleRow}>
-        <View style={styles.titleBar} />
-        <Text style={styles.title}>{title}</Text>
-      </View>
-      {rows.map((row, i) => (
-        <View key={i} style={[styles.row, i % 2 === 1 && styles.rowAlt]}>
-          <Text style={styles.rowLabel}>{row.label}</Text>
-          <Text style={styles.rowValue}>{row.value}</Text>
+    <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+      <View style={styles.card}>
+        <View style={styles.titleRow}>
+          <View style={styles.titleBar} />
+          <Text style={styles.title}>{title}</Text>
         </View>
-      ))}
-    </View>
+        {rows.map((row, i) => (
+          <View key={i} style={[styles.row, i % 2 === 1 && styles.rowAlt]}>
+            <Text style={styles.rowLabel}>{row.label}</Text>
+            <Text style={styles.rowValue}>{row.value}</Text>
+          </View>
+        ))}
+      </View>
+    </Animated.View>
   );
 }

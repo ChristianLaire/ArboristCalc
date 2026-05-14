@@ -1,7 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { View, Text, ScrollView, StyleSheet, Share } from 'react-native';
 import { SegmentedButtons } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
+import { useKeepAwake } from 'expo-keep-awake';
 import NumericInput from '@/components/NumericInput';
 import ResultCard from '@/components/ResultCard';
 import SafetyBadge from '@/components/SafetyBadge';
@@ -14,6 +16,7 @@ import { STATE_TO_REGION, SPECIES_REGIONS, REGION_LABELS, Region } from '@/data/
 import { FF, T, R, ColorPalette } from '@/theme';
 import { useColors } from '@/context/ThemeContext';
 import { useAutosave, loadAutosaved } from '@/hooks/useAutosave';
+import type { SafetyLevel } from '@/components/SafetyBadge';
 
 type AnchorSave = { load: string; momentArm: string; actualDiameter: string; category: Category; speciesName: string; decay: DecayLevel; sf: SafetyFactor; tempF: string };
 
@@ -38,45 +41,32 @@ function makeStyles(C: ColorPalette) {
     segment:      { marginBottom: 8 },
 
     chipRow: { flexDirection: 'row', marginBottom: 4 },
-    chip: {
-      paddingHorizontal: 16, paddingVertical: 10, borderRadius: R.pill,
-      backgroundColor: C.card, marginRight: 8, marginBottom: 8,
-      borderWidth: 1.5, borderColor: C.border,
-    },
-    chipActive:  { backgroundColor: C.green900, borderColor: C.green900 },
-    chipCustom:  { backgroundColor: C.importBg, borderColor: C.importBorder },
-    chipText:    { fontSize: T.sm, fontFamily: FF.semibold, color: C.textMid },
+    chip:    { paddingHorizontal: 16, paddingVertical: 10, borderRadius: R.pill, backgroundColor: C.card, marginRight: 8, marginBottom: 8, borderWidth: 1.5, borderColor: C.border },
+    chipActive:     { backgroundColor: C.green900, borderColor: C.green900 },
+    chipCustom:     { backgroundColor: C.importBg, borderColor: C.importBorder },
+    chipText:       { fontSize: T.sm, fontFamily: FF.semibold, color: C.textMid },
     chipTextActive: { color: '#fff', fontFamily: FF.bold },
 
-    importBanner: {
-      backgroundColor: C.importBg, borderRadius: R.md, padding: 13,
-      marginBottom: 16, borderLeftWidth: 4, borderLeftColor: C.importBorder,
-    },
-    importText: { fontSize: T.sm, fontFamily: FF.semibold, color: C.importText },
+    importBanner: { backgroundColor: C.importBg, borderRadius: R.md, padding: 13, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: C.importBorder },
+    importText:   { fontSize: T.sm, fontFamily: FF.semibold, color: C.importText },
 
-    regionBanner: {
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-      backgroundColor: C.green50, borderRadius: R.md, padding: 11, marginBottom: 11,
-      borderLeftWidth: 4, borderLeftColor: C.green800,
-    },
+    regionBanner:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.green50, borderRadius: R.md, padding: 11, marginBottom: 11, borderLeftWidth: 4, borderLeftColor: C.green800 },
     regionBannerText: { fontSize: T.sm, fontFamily: FF.bold, color: C.green900, flex: 1 },
-    regionToggleBtn: {
-      paddingHorizontal: 12, paddingVertical: 6, borderRadius: R.pill,
-      backgroundColor: 'rgba(0,0,0,0.06)',
-    },
+    regionToggleBtn:  { paddingHorizontal: 12, paddingVertical: 6, borderRadius: R.pill, backgroundColor: 'rgba(0,0,0,0.06)' },
     regionToggleText: { fontSize: T.sm, fontFamily: FF.bold, color: C.ctaOrange },
 
-    noteBox: {
-      backgroundColor: C.green50, borderRadius: R.md, padding: 12,
-      marginBottom: 6, borderLeftWidth: 4, borderLeftColor: C.green800,
-    },
-    noteBoxFrozen:  { backgroundColor: C.importBg, borderLeftColor: C.importBorder },
-    noteText:       { fontSize: T.sm, fontFamily: FF.normal, color: C.green900, lineHeight: 20 },
+    noteBox:       { backgroundColor: C.green50, borderRadius: R.md, padding: 12, marginBottom: 6, borderLeftWidth: 4, borderLeftColor: C.green800 },
+    noteBoxFrozen: { backgroundColor: C.importBg, borderLeftColor: C.importBorder },
+    noteText:      { fontSize: T.sm, fontFamily: FF.normal, color: C.green900, lineHeight: 20 },
     noteTextFrozen: { color: C.importText },
+
+    shareBtn:     { marginTop: 10, backgroundColor: C.card, borderRadius: R.pill, paddingVertical: 0, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: C.border },
+    shareBtnText: { color: C.green900, fontFamily: FF.semibold, fontSize: T.base },
   });
 }
 
 export default function AnchorScreen() {
+  useKeepAwake();
   const C = useColors();
   const styles = useMemo(() => makeStyles(C), [C]);
 
@@ -94,11 +84,9 @@ export default function AnchorScreen() {
   const [detectedRegion, setDetectedRegion] = useState<Region | null>(null);
   const [showAll, setShowAll]               = useState(false);
   const [customSpecies, setCustomSpecies]   = useState<CustomSpecies[]>([]);
+  const prevLevel = useRef<SafetyLevel | null>(null);
 
-  const handleCategoryChange = (cat: Category) => {
-    setCategory(cat);
-    setSpecies(getByCategory(cat)[0]);
-  };
+  const handleCategoryChange = (cat: Category) => { setCategory(cat); setSpecies(getByCategory(cat)[0]); };
 
   useEffect(() => {
     (async () => {
@@ -137,35 +125,39 @@ export default function AnchorScreen() {
     })();
   }, []);
 
-  const baseFiltered = getByCategory(category);
+  const baseFiltered   = getByCategory(category);
   const regionFiltered = (detectedRegion && !showAll)
-    ? baseFiltered.filter(s => {
-        const regions = SPECIES_REGIONS[s.name];
-        return regions ? regions.includes(detectedRegion) : true;
-      })
+    ? baseFiltered.filter(s => { const r = SPECIES_REGIONS[s.name]; return r ? r.includes(detectedRegion) : true; })
     : baseFiltered;
-
-  const customFiltered  = customSpecies.filter(s => s.category === category);
-  const displaySpecies: Species[] = [...regionFiltered, ...customFiltered];
+  const displaySpecies: Species[] = [...regionFiltered, ...customSpecies.filter(s => s.category === category)];
 
   const temp        = parseFloat(tempF);
   const tempFactor  = !isNaN(temp) ? frozenWoodFactor(temp) : 1.0;
   const adjustedMor = Math.round(species.morPsi * tempFactor);
 
-  useAutosave('autosave_anchor', {
-    load, momentArm, actualDiameter, category,
-    speciesName: species.name, decay, sf, tempF,
-  } satisfies AnchorSave);
+  useAutosave('autosave_anchor', { load, momentArm, actualDiameter, category, speciesName: species.name, decay, sf, tempF } satisfies AnchorSave);
 
   const result = (() => {
     try {
-      const l   = parseFloat(load);
-      const arm = parseFloat(momentArm);
-      const dia = parseFloat(actualDiameter);
+      const l = parseFloat(load), arm = parseFloat(momentArm), dia = parseFloat(actualDiameter);
       if (!l || !arm || !dia) return null;
       return calcAnchor({ loadLbs: l, momentArmFt: arm, actualDiameterIn: dia, morPsi: adjustedMor, decay, safetyFactor: sf });
     } catch { return null; }
   })();
+
+  // Warning haptic when result flips to red
+  useEffect(() => {
+    if (result && result.level !== prevLevel.current) {
+      if (result.level === 'red') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      prevLevel.current = result.level;
+    }
+    if (!result) prevLevel.current = null;
+  }, [result?.level]);
+
+  const shareResult = async () => {
+    if (!result) return;
+    await Share.share({ message: `ArboristCalc — Anchor Rating\nLoad: ${load} lbs  |  Moment Arm: ${momentArm} ft\nStem Diameter: ${actualDiameter} in  |  Species: ${species.name}\nDecay: ${decay}  |  Safety Factor: ${sf === 'rigging' ? '3×' : '5×'}\nRequired Diameter: ${result.requiredDiameterIn.toFixed(2)} in\nEffective Diameter: ${result.effectiveDiameterIn.toFixed(2)} in\nRatio: ${result.ratio.toFixed(2)}×\nStatus: ${result.message}\nGenerated by ArboristCalc` });
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container} style={styles.screen}>
@@ -196,74 +188,53 @@ export default function AnchorScreen() {
       {detectedRegion && (
         <View style={styles.regionBanner}>
           <Text style={styles.regionBannerText}>📍 {REGION_LABELS[detectedRegion]} species</Text>
-          <PressableFeedback
-            style={styles.regionToggleBtn}
-            onPress={() => setShowAll(v => !v)}
-            haptic="selection"
-            scaleTarget={0.92}
-          >
+          <PressableFeedback style={styles.regionToggleBtn} onPress={() => setShowAll(v => !v)} haptic="selection" scaleTarget={0.92}>
             <Text style={styles.regionToggleText}>{showAll ? 'Show Regional' : 'Show All'}</Text>
           </PressableFeedback>
         </View>
       )}
 
-      <SegmentedButtons
-        value={category}
-        onValueChange={v => handleCategoryChange(v as Category)}
-        buttons={[{ value: 'Hardwood', label: 'Hardwood' }, { value: 'Softwood', label: 'Softwood' }]}
-        style={styles.segment}
-      />
+      <SegmentedButtons value={category} onValueChange={v => handleCategoryChange(v as Category)} buttons={[{ value: 'Hardwood', label: 'Hardwood' }, { value: 'Softwood', label: 'Softwood' }]} style={styles.segment} />
+
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
         {displaySpecies.map(s => {
-          const isCustom = 'isCustom' in s;
-          const isActive = species.name === s.name;
+          const isCustom = 'isCustom' in s, isActive = species.name === s.name;
           return (
-            <PressableFeedback
-              key={s.name}
-              style={[styles.chip, isActive && styles.chipActive, isCustom && !isActive && styles.chipCustom]}
-              onPress={() => setSpecies(s)}
-              haptic="selection"
-            >
+            <PressableFeedback key={s.name} style={[styles.chip, isActive && styles.chipActive, isCustom && !isActive && styles.chipCustom]} onPress={() => setSpecies(s)} haptic="selection">
               <Text style={[styles.chipText, isActive && styles.chipTextActive]}>{s.name}</Text>
             </PressableFeedback>
           );
         })}
       </ScrollView>
-      {species.notes && (
-        <View style={styles.noteBox}>
-          <Text style={styles.noteText}>{species.notes}</Text>
-        </View>
-      )}
+
+      {species.notes && <View style={styles.noteBox}><Text style={styles.noteText}>{species.notes}</Text></View>}
 
       <Text style={styles.sectionLabel}>Decay</Text>
-      <SegmentedButtons
-        value={decay}
-        onValueChange={v => setDecay(v as DecayLevel)}
-        buttons={DECAY_OPTIONS.map(d => ({ value: d.value, label: d.label }))}
-        style={styles.segment}
-      />
+      <SegmentedButtons value={decay} onValueChange={v => setDecay(v as DecayLevel)} buttons={DECAY_OPTIONS.map(d => ({ value: d.value, label: d.label }))} style={styles.segment} />
 
       <Text style={styles.sectionLabel}>Safety Factor</Text>
-      <SegmentedButtons
-        value={sf}
-        onValueChange={v => setSf(v as SafetyFactor)}
-        buttons={SF_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
-        style={styles.segment}
-      />
+      <SegmentedButtons value={sf} onValueChange={v => setSf(v as SafetyFactor)} buttons={SF_OPTIONS.map(o => ({ value: o.value, label: o.label }))} style={styles.segment} />
 
       {result && (
         <>
           <ResultCard
             title="Anchor Rating"
+            hero={{
+              value: `${result.ratio.toFixed(2)}×`,
+              sublabel: `actual / required diameter ratio`,
+              level: result.level,
+            }}
             rows={[
               { label: 'Required Diameter',       value: `${result.requiredDiameterIn.toFixed(2)} in` },
               { label: 'Effective Diameter',      value: `${result.effectiveDiameterIn.toFixed(2)} in` },
-              { label: 'Ratio (actual/required)', value: `${result.ratio.toFixed(2)}×` },
               { label: 'MOR used', value: `${adjustedMor.toLocaleString()} psi${tempFactor > 1 ? ` (×${tempFactor.toFixed(2)} frozen)` : ''}` },
-              { label: 'Safety Factor',           value: sf === 'rigging' ? '3.0×' : '5.0×' },
+              { label: 'Safety Factor', value: sf === 'rigging' ? '3.0×' : '5.0×' },
             ]}
           />
           <SafetyBadge level={result.level} message={result.message} />
+          <PressableFeedback style={styles.shareBtn} onPress={shareResult} haptic="light">
+            <Text style={styles.shareBtnText}>↑  Share Result</Text>
+          </PressableFeedback>
         </>
       )}
     </ScrollView>

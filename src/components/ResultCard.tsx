@@ -6,11 +6,19 @@ import { useColors } from '@/context/ThemeContext';
 interface Row {
   label: string;
   value: string;
+  highlight?: boolean; // bold value in green
+}
+
+interface Hero {
+  value: string;       // e.g. "1,779 lbs"
+  sublabel?: string;   // e.g. "2.1× static weight"
+  level?: 'green' | 'yellow' | 'red';
 }
 
 interface Props {
   title: string;
   rows: Row[];
+  hero?: Hero;
 }
 
 function makeStyles(C: ColorPalette) {
@@ -50,6 +58,27 @@ function makeStyles(C: ColorPalette) {
       color: C.green900,
       flex: 1,
     },
+    // ── Hero metric ───────────────────────────────────────
+    heroSection: {
+      alignItems: 'center',
+      paddingVertical: 22,
+      paddingHorizontal: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: C.border,
+    },
+    heroValue: {
+      fontSize: 48,
+      fontFamily: FF.heavy,
+      letterSpacing: -1,
+      fontVariant: ['tabular-nums'],
+    },
+    heroSublabel: {
+      fontSize: T.base,
+      fontFamily: FF.medium,
+      color: C.textMid,
+      marginTop: 4,
+    },
+    // ── Data rows ─────────────────────────────────────────
     row: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -72,11 +101,21 @@ function makeStyles(C: ColorPalette) {
       color: C.text,
       textAlign: 'right',
       marginLeft: 12,
+      fontVariant: ['tabular-nums'],
+    },
+    rowValueHighlight: {
+      color: C.green900,
     },
   });
 }
 
-export default function ResultCard({ title, rows }: Props) {
+const HERO_COLORS = {
+  green:  { text: '#1b5e20' },
+  yellow: { text: '#bf360c' },
+  red:    { text: '#b71c1c' },
+};
+
+export default function ResultCard({ title, rows, hero }: Props) {
   const C = useColors();
   const styles = useMemo(() => makeStyles(C), [C]);
 
@@ -85,14 +124,12 @@ export default function ResultCard({ title, rows }: Props) {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1, duration: 260, useNativeDriver: true,
-      }),
-      Animated.spring(translateY, {
-        toValue: 0, tension: 280, friction: 26, useNativeDriver: true,
-      }),
+      Animated.timing(opacity,    { toValue: 1, duration: 260, useNativeDriver: true }),
+      Animated.spring(translateY, { toValue: 0, tension: 280, friction: 26, useNativeDriver: true }),
     ]).start();
   }, []);
+
+  const heroColor = hero?.level ? HERO_COLORS[hero.level].text : C.green900;
 
   return (
     <Animated.View style={{ opacity, transform: [{ translateY }] }}>
@@ -101,10 +138,20 @@ export default function ResultCard({ title, rows }: Props) {
           <View style={styles.titleBar} />
           <Text style={styles.title}>{title}</Text>
         </View>
+
+        {hero && (
+          <View style={styles.heroSection}>
+            <Text style={[styles.heroValue, { color: heroColor }]}>{hero.value}</Text>
+            {hero.sublabel && <Text style={styles.heroSublabel}>{hero.sublabel}</Text>}
+          </View>
+        )}
+
         {rows.map((row, i) => (
           <View key={i} style={[styles.row, i % 2 === 1 && styles.rowAlt]}>
             <Text style={styles.rowLabel}>{row.label}</Text>
-            <Text style={styles.rowValue}>{row.value}</Text>
+            <Text style={[styles.rowValue, row.highlight && styles.rowValueHighlight]}>
+              {row.value}
+            </Text>
           </View>
         ))}
       </View>

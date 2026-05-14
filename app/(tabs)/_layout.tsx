@@ -23,9 +23,9 @@ export default function TabLayout() {
           paddingBottom: 8,
         },
         tabBarLabelStyle: {
-          fontSize: T.xs,
+          fontSize: 10,
           fontFamily: FF.semibold,
-          letterSpacing: 0.2,
+          letterSpacing: 0.1,
         },
         headerStyle: { backgroundColor: isDark ? '#0a3d0e' : C.green900 },
         headerTintColor: '#fff',
@@ -33,6 +33,16 @@ export default function TabLayout() {
         headerShadowVisible: false,
       }}
     >
+      <Tabs.Screen
+        name="home"
+        options={{
+          title: 'Home',
+          headerTitle: 'ArboristCalc',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="home" color={color} size={size} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="weight"
         options={{
@@ -54,7 +64,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="tension"
         options={{
-          title: 'Tension / MA',
+          title: 'Tension',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="arrow-expand-horizontal" color={color} size={size} />
           ),

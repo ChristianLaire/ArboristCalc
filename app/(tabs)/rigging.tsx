@@ -7,6 +7,9 @@ import SafetyBadge from '@/components/SafetyBadge';
 import { DEFAULT_ROPES, Rope } from '@/data/ropes';
 import { calcRigging } from '@/math/rigging';
 import { C, T, R } from '@/theme';
+import { useAutosave, loadAutosaved } from '@/hooks/useAutosave';
+
+type RiggingSave = { staticLoad: string; impactFactor: string; ropeAngle: string; ropeId: string };
 
 export default function RiggingScreen() {
   const [staticLoad, setStaticLoad]     = useState('');
@@ -16,9 +19,19 @@ export default function RiggingScreen() {
   const [imported, setImported]         = useState(false);
 
   useEffect(() => {
-    AsyncStorage.getItem('crossModule_weightLbs').then(val => {
-      if (val) { setStaticLoad(val); setImported(true); }
-    });
+    (async () => {
+      // Restore previous session first, then let cross-module import override load field
+      const saved = await loadAutosaved<RiggingSave>('autosave_rigging');
+      if (saved) {
+        if (saved.staticLoad)  setStaticLoad(saved.staticLoad);
+        if (saved.impactFactor) setImpactFactor(saved.impactFactor);
+        if (saved.ropeAngle)   setRopeAngle(saved.ropeAngle);
+        const rope = DEFAULT_ROPES.find(r => r.id === saved.ropeId);
+        if (rope) setSelectedRope(rope);
+      }
+      const crossModule = await AsyncStorage.getItem('crossModule_weightLbs');
+      if (crossModule) { setStaticLoad(crossModule); setImported(true); }
+    })();
   }, []);
 
   const result = (() => {
@@ -30,6 +43,10 @@ export default function RiggingScreen() {
       return calcRigging({ staticLoadLbs: load, impactFactor: impact, ropeAngleDeg: angle, wllLbs: selectedRope.wllLbs });
     } catch { return null; }
   })();
+
+  useAutosave('autosave_rigging', {
+    staticLoad, impactFactor, ropeAngle, ropeId: selectedRope.id,
+  } satisfies RiggingSave);
 
   const sendToAnchor = async () => {
     if (!result) return;

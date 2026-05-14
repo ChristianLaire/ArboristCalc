@@ -10,6 +10,9 @@ import { calcAnchor, DecayLevel, SafetyFactor } from '@/math/anchor';
 import { frozenWoodFactor, frozenWoodLabel } from '@/math/environmental';
 import { STATE_TO_REGION, SPECIES_REGIONS, REGION_LABELS, Region } from '@/data/speciesRanges';
 import { C, T, R } from '@/theme';
+import { useAutosave, loadAutosaved } from '@/hooks/useAutosave';
+
+type AnchorSave = { load: string; momentArm: string; actualDiameter: string; category: Category; speciesName: string; decay: DecayLevel; sf: SafetyFactor; tempF: string };
 
 const DECAY_OPTIONS: { label: string; value: DecayLevel }[] = [
   { label: 'None', value: 'none' },
@@ -45,15 +48,39 @@ export default function AnchorScreen() {
   };
 
   useEffect(() => {
-    AsyncStorage.getItem('crossModule_riggingLoadLbs').then(val => {
-      if (val) { setLoad(val); setImported(true); }
-    });
-    AsyncStorage.getItem('arborist_detected_state').then(state => {
+    (async () => {
+      // Restore previous session
+      const saved = await loadAutosaved<AnchorSave>('autosave_anchor');
+      if (saved) {
+        if (saved.momentArm)      setMomentArm(saved.momentArm);
+        if (saved.actualDiameter) setActualDiameter(saved.actualDiameter);
+        if (saved.decay)          setDecay(saved.decay);
+        if (saved.sf)             setSf(saved.sf);
+        if (saved.tempF)          setTempF(saved.tempF);
+        if (saved.category)       setCategory(saved.category);
+        const found = SPECIES.find(s => s.name === saved.speciesName);
+        if (found)                setSpecies(found);
+      }
+      // Cross-module import overrides the load field
+      const crossModule = await AsyncStorage.getItem('crossModule_riggingLoadLbs');
+      if (crossModule) { setLoad(crossModule); setImported(true); }
+      else if (saved?.load) setLoad(saved.load);
+
+      const state = await AsyncStorage.getItem('arborist_detected_state');
       if (state && STATE_TO_REGION[state]) setDetectedRegion(STATE_TO_REGION[state] as Region);
-    });
-    AsyncStorage.getItem('arborist_custom_species').then(raw => {
-      if (raw) { try { setCustomSpecies(JSON.parse(raw)); } catch {} }
-    });
+
+      const raw = await AsyncStorage.getItem('arborist_custom_species');
+      if (raw) {
+        try {
+          const custom = JSON.parse(raw);
+          setCustomSpecies(custom);
+          if (saved?.speciesName && !SPECIES.find(s => s.name === saved.speciesName)) {
+            const found = custom.find((s: CustomSpecies) => s.name === saved.speciesName);
+            if (found) setSpecies(found);
+          }
+        } catch {}
+      }
+    })();
   }, []);
 
   const baseFiltered = getByCategory(category);
@@ -70,6 +97,11 @@ export default function AnchorScreen() {
   const temp        = parseFloat(tempF);
   const tempFactor  = !isNaN(temp) ? frozenWoodFactor(temp) : 1.0;
   const adjustedMor = Math.round(species.morPsi * tempFactor);
+
+  useAutosave('autosave_anchor', {
+    load, momentArm, actualDiameter, category,
+    speciesName: species.name, decay, sf, tempF,
+  } satisfies AnchorSave);
 
   const result = (() => {
     try {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Text, ScrollView, StyleSheet } from 'react-native';
 import { SegmentedButtons } from 'react-native-paper';
 import NumericInput from '@/components/NumericInput';
@@ -6,6 +6,9 @@ import ResultCard from '@/components/ResultCard';
 import SafetyBadge from '@/components/SafetyBadge';
 import { calcSlingTension, calcMechanicalAdvantage, MaSystem } from '@/math/tension';
 import { C, T } from '@/theme';
+import { useAutosave, loadAutosaved } from '@/hooks/useAutosave';
+
+type TensionSave = { subMode: 'sling' | 'ma'; load: string; angle: string; maLoad: string; maSystem: MaSystem; efficiency: string };
 
 const MA_SYSTEMS: MaSystem[] = ['2:1', '3:1', '4:1'];
 
@@ -18,6 +21,22 @@ export default function TensionScreen() {
   const [maLoad, setMaLoad]         = useState('');
   const [maSystem, setMaSystem]     = useState<MaSystem>('3:1');
   const [efficiency, setEfficiency] = useState('85');
+
+  useEffect(() => {
+    loadAutosaved<TensionSave>('autosave_tension').then(saved => {
+      if (!saved) return;
+      setSubMode(saved.subMode);
+      if (saved.load)       setLoad(saved.load);
+      if (saved.angle)      setAngle(saved.angle);
+      if (saved.maLoad)     setMaLoad(saved.maLoad);
+      if (saved.maSystem)   setMaSystem(saved.maSystem);
+      if (saved.efficiency) setEfficiency(saved.efficiency);
+    });
+  }, []);
+
+  useAutosave('autosave_tension', {
+    subMode, load, angle, maLoad, maSystem, efficiency,
+  } satisfies TensionSave);
 
   const slingResult = (() => {
     try {

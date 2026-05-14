@@ -10,6 +10,9 @@ import { calcLogWeight } from '@/math/weight';
 import { leafWeightLbs } from '@/math/environmental';
 import { STATE_TO_REGION, SPECIES_REGIONS, REGION_LABELS, Region } from '@/data/speciesRanges';
 import { C, T, R } from '@/theme';
+import { useAutosave, loadAutosaved } from '@/hooks/useAutosave';
+
+type WeightSave = { mode: 'log'|'tree'; category: Category; speciesName: string; condition: Condition; dSmall: string; dLarge: string; length: string; dbh: string; height: string; inLeaf: boolean };
 
 const CONDITIONS: { label: string; value: Condition }[] = [
   { label: 'Green', value: 'green' },
@@ -48,10 +51,37 @@ export default function WeightScreen() {
   useEffect(() => { loadRegionAndCustom(); }, []);
 
   async function loadRegionAndCustom() {
+    // Load autosaved inputs first
+    const saved = await loadAutosaved<WeightSave>('autosave_weight');
+    if (saved) {
+      if (saved.mode)     setMode(saved.mode);
+      if (saved.condition) setCondition(saved.condition);
+      if (saved.dSmall)   setDSmall(saved.dSmall);
+      if (saved.dLarge)   setDLarge(saved.dLarge);
+      if (saved.length)   setLength(saved.length);
+      if (saved.dbh)      setDbh(saved.dbh);
+      if (saved.height)   setHeight(saved.height);
+      setInLeaf(saved.inLeaf ?? true);
+      if (saved.category) setCategory(saved.category);
+      const found = SPECIES.find(s => s.name === saved.speciesName);
+      if (found) setSpecies(found);
+    }
+
     const state = await AsyncStorage.getItem('arborist_detected_state');
     if (state && STATE_TO_REGION[state]) setDetectedRegion(STATE_TO_REGION[state] as Region);
+
     const raw = await AsyncStorage.getItem(CUSTOM_KEY);
-    if (raw) { try { setCustomSpecies(JSON.parse(raw)); } catch {} }
+    if (raw) {
+      try {
+        const custom = JSON.parse(raw);
+        setCustomSpecies(custom);
+        // If saved species is a custom one, set it now that we have the list
+        if (saved?.speciesName && !SPECIES.find(s => s.name === saved.speciesName)) {
+          const found = custom.find((s: CustomSpecies) => s.name === saved.speciesName);
+          if (found) setSpecies(found);
+        }
+      } catch {}
+    }
   }
 
   async function saveCustomSpecies(updated: CustomSpecies[]) {
@@ -123,6 +153,11 @@ export default function WeightScreen() {
     setCategory(cat);
     setSpecies(getByCategory(cat)[0]);
   };
+
+  useAutosave('autosave_weight', {
+    mode, category, speciesName: species.name, condition,
+    dSmall, dLarge, length, dbh, height, inLeaf,
+  } satisfies WeightSave);
 
   return (
     <ScrollView contentContainerStyle={styles.container} style={styles.screen}>

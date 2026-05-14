@@ -33,7 +33,7 @@ export function calcLogWeight(input: LogWeightInput): WeightResult {
     // Whole-tree: V = π × (DBH/2)² × height × form_factor
     const rFt = (input.dbhIn ?? 0) / 2 / 12;
     const heightFt = input.heightFt ?? 0;
-    const ff = input.formFactor ?? 0.55;
+    const ff = input.formFactor ?? input.species.formFactor ?? 0.55;
     volumeFt3 = Math.PI * rFt ** 2 * heightFt * ff;
   }
 

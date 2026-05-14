@@ -57,8 +57,23 @@ function makeStyles(C: ColorPalette) {
 
     noteBox:       { backgroundColor: C.green50, borderRadius: R.md, padding: 12, marginBottom: 6, borderLeftWidth: 4, borderLeftColor: C.green800 },
     noteBoxFrozen: { backgroundColor: C.importBg, borderLeftColor: C.importBorder },
+    noteBoxWarn:   { backgroundColor: C.safeYellowBg, borderLeftColor: C.safeYellowBorder },
+    noteBoxDanger: { backgroundColor: C.safeRedBg, borderLeftColor: C.safeRedBorder },
     noteText:      { fontSize: T.sm, fontFamily: FF.normal, color: C.green900, lineHeight: 20 },
     noteTextFrozen: { color: C.importText },
+    noteTextWarn:  { color: C.safeYellowText },
+    noteTextDanger: { color: C.safeRedText },
+
+    speciesInfoRow: { flexDirection: 'row', gap: 8, marginBottom: 6 },
+    speciesBadge:   { flex: 1, borderRadius: R.md, padding: 10, alignItems: 'center' },
+    speciesBadgeGreen:  { backgroundColor: C.safeGreenBg, borderWidth: 1, borderColor: C.safeGreenBorder },
+    speciesBadgeYellow: { backgroundColor: C.safeYellowBg, borderWidth: 1, borderColor: C.safeYellowBorder },
+    speciesBadgeRed:    { backgroundColor: C.safeRedBg, borderWidth: 1, borderColor: C.safeRedBorder },
+    speciesBadgeLabel:  { fontSize: 10, fontFamily: FF.bold, color: C.textMid, marginBottom: 2, textTransform: 'uppercase', letterSpacing: 0.5 },
+    speciesBadgeValue:  { fontSize: T.sm, fontFamily: FF.heavy, textAlign: 'center' },
+    speciesBadgeValueGreen:  { color: C.safeGreenText },
+    speciesBadgeValueYellow: { color: C.safeYellowText },
+    speciesBadgeValueRed:    { color: C.safeRedText },
 
     shareBtn:     { marginTop: 10, backgroundColor: C.card, borderRadius: R.pill, paddingVertical: 0, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: C.border },
     shareBtnText: { color: C.green900, fontFamily: FF.semibold, fontSize: T.base },
@@ -206,6 +221,49 @@ export default function AnchorScreen() {
           );
         })}
       </ScrollView>
+
+      {/* CODIT + decay resistance + branch risk badges */}
+      {(species.codit || species.decayResistance || species.branchRisk) && (() => {
+        const coditColor = species.codit === 'strong' ? 'Green' : species.codit === 'weak' ? 'Red' : 'Yellow';
+        const decayColor = species.decayResistance === 'resistant' ? 'Green' : species.decayResistance === 'susceptible' ? 'Red' : 'Yellow';
+        const riskColor  = species.branchRisk === 'low' ? 'Green' : species.branchRisk === 'high' ? 'Red' : 'Yellow';
+        const badge = (label: string, value: string, color: 'Green' | 'Yellow' | 'Red') => (
+          <View style={[styles.speciesBadge, styles[`speciesBadge${color}` as const]]}>
+            <Text style={styles.speciesBadgeLabel}>{label}</Text>
+            <Text style={[styles.speciesBadgeValue, styles[`speciesBadgeValue${color}` as const]]}>{value}</Text>
+          </View>
+        );
+        return (
+          <View style={styles.speciesInfoRow}>
+            {species.codit          && badge('CODIT', species.codit.charAt(0).toUpperCase() + species.codit.slice(1), coditColor)}
+            {species.decayResistance && badge('Heartwood', species.decayResistance === 'resistant' ? 'Resistant' : species.decayResistance === 'susceptible' ? 'Susceptible' : 'Moderate', decayColor)}
+            {species.branchRisk     && badge('Branch Risk', species.branchRisk.charAt(0).toUpperCase() + species.branchRisk.slice(1), riskColor)}
+          </View>
+        );
+      })()}
+
+      {/* High-risk contextual warnings */}
+      {species.codit === 'weak' && (
+        <View style={[styles.noteBox, styles.noteBoxDanger]}>
+          <Text style={[styles.noteText, styles.noteTextDanger]}>
+            ⚠ Weak compartmentalization — decay columns spread rapidly after wounds. Inspect anchor stem thoroughly before loading.
+          </Text>
+        </View>
+      )}
+      {species.decayResistance === 'susceptible' && species.codit !== 'weak' && (
+        <View style={[styles.noteBox, styles.noteBoxWarn]}>
+          <Text style={[styles.noteText, styles.noteTextWarn]}>
+            Susceptible heartwood — evaluate any existing wounds, cavities, or fungal signs before trusting this anchor point.
+          </Text>
+        </View>
+      )}
+      {species.branchRisk === 'high' && (
+        <View style={[styles.noteBox, styles.noteBoxDanger]}>
+          <Text style={[styles.noteText, styles.noteTextDanger]}>
+            ⚠ High branch/stem failure risk — elevated safety factor (5×) recommended; inspect with sound mallet before climbing.
+          </Text>
+        </View>
+      )}
 
       {species.notes && <View style={styles.noteBox}><Text style={styles.noteText}>{species.notes}</Text></View>}
 

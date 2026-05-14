@@ -18,17 +18,30 @@ interface WeatherSource {
 
 type WeatherStatus = 'idle' | 'loading' | 'ok' | 'partial' | 'error';
 
+// Verbose fetch wrapper — logs every request, status, and timing to console
+async function verboseFetch(url: string, options: RequestInit & { verbose: boolean } = { verbose: true }): Promise<Response> {
+  const { verbose, ...init } = options;
+  const t0 = Date.now();
+  if (verbose) console.log(`[ArboristCalc] → ${url}`);
+  try {
+    const res = await fetch(url, init);
+    if (verbose) console.log(`[ArboristCalc] ← ${res.status} ${res.statusText} (${Date.now() - t0}ms) ${url}`);
+    return res;
+  } catch (err) {
+    if (verbose) console.error(`[ArboristCalc] ✗ FAILED (${Date.now() - t0}ms) ${url}`, err);
+    throw err;
+  }
+}
+
 // NWS real-time observation from the nearest ASOS/AWOS station
 async function fetchNWSObservation(stationsUrl: string): Promise<WeatherSource> {
-  const stRes = await fetch(stationsUrl, { headers: UA });
+  const stRes = await verboseFetch(stationsUrl, { verbose: true, headers: UA });
   if (!stRes.ok) throw new Error('stations');
   const stJson = await stRes.json();
   const stationId: string = stJson.features[0].properties.stationIdentifier;
 
-  const obsRes = await fetch(
-    `https://api.weather.gov/stations/${stationId}/observations/latest`,
-    { headers: UA }
-  );
+  const obsUrl = `https://api.weather.gov/stations/${stationId}/observations/latest`;
+  const obsRes = await verboseFetch(obsUrl, { verbose: true, headers: UA });
   if (!obsRes.ok) throw new Error('obs');
   const obs = await obsRes.json();
 
@@ -36,15 +49,17 @@ async function fetchNWSObservation(stationsUrl: string): Promise<WeatherSource> 
   if (tempC === null) throw new Error('null temp');
   const rh: number = obs.properties.relativeHumidity?.value ?? 50;
 
+  console.log(`[ArboristCalc] NWS Station ${stationId}: ${(tempC * 9/5 + 32).toFixed(1)}°F / ${rh.toFixed(0)}% RH`);
   return { label: 'NWS Station', tempF: Math.round(tempC * 9 / 5 + 32), rhPct: Math.round(rh) };
 }
 
 // NWS hourly forecast — current period (fallback when no live obs)
 async function fetchNWSForecast(forecastUrl: string): Promise<WeatherSource> {
-  const res = await fetch(forecastUrl, { headers: UA });
+  const res = await verboseFetch(forecastUrl, { verbose: true, headers: UA });
   if (!res.ok) throw new Error('forecast');
   const json = await res.json();
   const p = json.properties.periods[0];
+  console.log(`[ArboristCalc] NWS Forecast period: ${p.name} — ${p.temperature}°F / ${p.relativeHumidity?.value ?? '?'}% RH`);
   return {
     label: 'NWS Forecast',
     tempF: p.temperature,
@@ -55,9 +70,10 @@ async function fetchNWSForecast(forecastUrl: string): Promise<WeatherSource> {
 // Open-Meteo — free, no API key, global coverage
 async function fetchOpenMeteo(lat: number, lon: number): Promise<WeatherSource> {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lon.toFixed(4)}&current=temperature_2m,relative_humidity_2m&temperature_unit=fahrenheit&timezone=auto`;
-  const res = await fetch(url);
+  const res = await verboseFetch(url, { verbose: true });
   if (!res.ok) throw new Error('open-meteo');
   const json = await res.json();
+  console.log(`[ArboristCalc] Open-Meteo: ${json.current.temperature_2m}°F / ${json.current.relative_humidity_2m}% RH`);
   return {
     label: 'Open-Meteo',
     tempF: Math.round(json.current.temperature_2m),
@@ -120,9 +136,9 @@ export default function ConditionsScreen() {
     let nwsAvailable = false;
 
     try {
-      const pointsRes = await fetch(
+      const pointsRes = await verboseFetch(
         `https://api.weather.gov/points/${latitude.toFixed(4)},${longitude.toFixed(4)}`,
-        { headers: UA }
+        { verbose: true, headers: UA }
       );
       if (pointsRes.ok) {
         const pJson = await pointsRes.json();

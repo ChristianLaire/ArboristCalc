@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NumericInput from '@/components/NumericInput';
 import ResultCard from '@/components/ResultCard';
 import SafetyBadge from '@/components/SafetyBadge';
-import { SPECIES, Species, Condition } from '@/data/species';
+import { SPECIES, Species, Condition, Category, getByCategory } from '@/data/species';
 import { calcLogWeight } from '@/math/weight';
 
 const CONDITIONS: { label: string; value: Condition }[] = [
@@ -16,6 +16,7 @@ const CONDITIONS: { label: string; value: Condition }[] = [
 
 export default function WeightScreen() {
   const [mode, setMode] = useState<'log' | 'tree'>('log');
+  const [category, setCategory] = useState<Category>('Hardwood');
   const [species, setSpecies] = useState<Species>(SPECIES[0]);
   const [condition, setCondition] = useState<Condition>('green');
 
@@ -27,6 +28,8 @@ export default function WeightScreen() {
   // tree mode
   const [dbh, setDbh] = useState('');
   const [height, setHeight] = useState('');
+
+  const filteredSpecies = getByCategory(category);
 
   const result = (() => {
     try {
@@ -50,6 +53,11 @@ export default function WeightScreen() {
     await AsyncStorage.setItem('crossModule_weightLbs', result.weightLbs.toFixed(0));
   };
 
+  const handleCategoryChange = (cat: Category) => {
+    setCategory(cat);
+    setSpecies(getByCategory(cat)[0]);
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.sectionLabel}>Mode</Text>
@@ -60,9 +68,17 @@ export default function WeightScreen() {
         style={styles.segment}
       />
 
+      <Text style={styles.sectionLabel}>Category</Text>
+      <SegmentedButtons
+        value={category}
+        onValueChange={v => handleCategoryChange(v as Category)}
+        buttons={[{ value: 'Hardwood', label: 'Hardwood' }, { value: 'Softwood', label: 'Softwood' }]}
+        style={styles.segment}
+      />
+
       <Text style={styles.sectionLabel}>Species</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-        {SPECIES.map(s => (
+        {filteredSpecies.map(s => (
           <TouchableOpacity
             key={s.name}
             style={[styles.chip, species.name === s.name && styles.chipActive]}
@@ -72,6 +88,12 @@ export default function WeightScreen() {
           </TouchableOpacity>
         ))}
       </ScrollView>
+
+      {species.notes && (
+        <View style={styles.noteBox}>
+          <Text style={styles.noteText}>{species.notes}</Text>
+        </View>
+      )}
 
       <Text style={styles.sectionLabel}>Condition</Text>
       <SegmentedButtons
@@ -102,10 +124,11 @@ export default function WeightScreen() {
               { label: 'Volume', value: `${result.volumeFt3.toFixed(2)} ft³` },
               { label: 'Estimated Weight', value: `${result.weightLbs.toFixed(0)} lbs` },
               { label: 'Species', value: species.name },
+              { label: 'Density', value: `${species.greenLbsPerFt3} lbs/ft³ (green)` },
               { label: 'Condition', value: CONDITIONS.find(c => c.value === condition)?.label ?? '' },
             ]}
           />
-          <SafetyBadge level="green" message={`${result.weightLbs.toFixed(0)} lbs — tap below to send to Rigging`} />
+          <SafetyBadge level="green" message={`${result.weightLbs.toFixed(0)} lbs estimated — tap below to send to Rigging`} />
           <TouchableOpacity style={styles.sendBtn} onPress={sendToRigging}>
             <Text style={styles.sendBtnText}>→ Use in Rigging Calculator</Text>
           </TouchableOpacity>
@@ -127,6 +150,11 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: '#2e7d32' },
   chipText: { fontSize: 13, color: '#333' },
   chipTextActive: { color: '#fff', fontWeight: '600' },
+  noteBox: {
+    backgroundColor: '#f1f8e9', borderRadius: 8, padding: 10,
+    marginBottom: 4, borderLeftWidth: 3, borderLeftColor: '#2e7d32',
+  },
+  noteText: { fontSize: 12, color: '#33691e', lineHeight: 18 },
   sendBtn: {
     marginTop: 12, backgroundColor: '#1565c0', borderRadius: 8,
     paddingVertical: 12, alignItems: 'center',

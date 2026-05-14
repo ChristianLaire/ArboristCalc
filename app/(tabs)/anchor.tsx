@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NumericInput from '@/components/NumericInput';
 import ResultCard from '@/components/ResultCard';
 import SafetyBadge from '@/components/SafetyBadge';
-import { SPECIES, Species } from '@/data/species';
+import { SPECIES, Species, Category, getByCategory } from '@/data/species';
 import { calcAnchor, DecayLevel, SafetyFactor } from '@/math/anchor';
 
 const DECAY_OPTIONS: { label: string; value: DecayLevel }[] = [
@@ -23,10 +23,17 @@ export default function AnchorScreen() {
   const [load, setLoad] = useState('');
   const [momentArm, setMomentArm] = useState('1.0');
   const [actualDiameter, setActualDiameter] = useState('');
+  const [category, setCategory] = useState<Category>('Hardwood');
   const [species, setSpecies] = useState<Species>(SPECIES[0]);
   const [decay, setDecay] = useState<DecayLevel>('none');
   const [sf, setSf] = useState<SafetyFactor>('rigging');
   const [imported, setImported] = useState(false);
+
+  const filteredSpecies = getByCategory(category);
+  const handleCategoryChange = (cat: Category) => {
+    setCategory(cat);
+    setSpecies(getByCategory(cat)[0]);
+  };
 
   useEffect(() => {
     AsyncStorage.getItem('crossModule_riggingLoadLbs').then(val => {
@@ -60,8 +67,14 @@ export default function AnchorScreen() {
       <NumericInput label="Actual Stem Diameter" unit="in" value={actualDiameter} onChangeText={setActualDiameter} />
 
       <Text style={styles.sectionLabel}>Species (for MOR)</Text>
+      <SegmentedButtons
+        value={category}
+        onValueChange={v => handleCategoryChange(v as Category)}
+        buttons={[{ value: 'Hardwood', label: 'Hardwood' }, { value: 'Softwood', label: 'Softwood' }]}
+        style={styles.segment}
+      />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRow}>
-        {SPECIES.map(s => (
+        {filteredSpecies.map(s => (
           <TouchableOpacity
             key={s.name}
             style={[styles.chip, species.name === s.name && styles.chipActive]}
@@ -71,6 +84,11 @@ export default function AnchorScreen() {
           </TouchableOpacity>
         ))}
       </ScrollView>
+      {species.notes && (
+        <View style={styles.noteBox}>
+          <Text style={styles.noteText}>{species.notes}</Text>
+        </View>
+      )}
 
       <Text style={styles.sectionLabel}>Decay</Text>
       <SegmentedButtons
@@ -96,7 +114,8 @@ export default function AnchorScreen() {
               { label: 'Required Diameter', value: `${result.requiredDiameterIn.toFixed(2)} in` },
               { label: 'Effective Diameter', value: `${result.effectiveDiameterIn.toFixed(2)} in` },
               { label: 'Ratio (actual/required)', value: `${result.ratio.toFixed(2)}×` },
-              { label: 'MOR', value: `${species.morPsi.toLocaleString()} psi` },
+              { label: 'Species MOR (green)', value: `${species.morPsi.toLocaleString()} psi` },
+              { label: 'Safety Factor', value: sf === 'rigging' ? '3.0×' : '5.0×' },
             ]}
           />
           <SafetyBadge level={result.level} message={result.message} />
@@ -123,4 +142,9 @@ const styles = StyleSheet.create({
     marginBottom: 12, borderWidth: 1, borderColor: '#90caf9',
   },
   importText: { fontSize: 13, color: '#1565c0', fontWeight: '600' },
+  noteBox: {
+    backgroundColor: '#f1f8e9', borderRadius: 8, padding: 10,
+    marginBottom: 4, borderLeftWidth: 3, borderLeftColor: '#2e7d32',
+  },
+  noteText: { fontSize: 12, color: '#33691e', lineHeight: 18 },
 });

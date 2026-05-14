@@ -2,9 +2,28 @@ import { calcLogWeight } from '../math/weight';
 import { calcRigging } from '../math/rigging';
 import { calcSlingTension, calcMechanicalAdvantage } from '../math/tension';
 import { calcAnchor } from '../math/anchor';
-import { SPECIES } from '../data/species';
+import { SPECIES, getByCategory } from '../data/species';
 
-const redOak = SPECIES.find(s => s.name === 'Red Oak')!;
+const redOak = SPECIES.find(s => s.name === 'Northern Red Oak')!;
+
+// --- Species DB ---
+describe('species database', () => {
+  test('has 30+ species', () => expect(SPECIES.length).toBeGreaterThanOrEqual(30));
+  test('all species have positive MOR', () => SPECIES.forEach(s => expect(s.morPsi).toBeGreaterThan(0)));
+  test('Osage Orange has highest MOR (16,700 psi)', () => {
+    const max = Math.max(...SPECIES.map(s => s.morPsi));
+    const oo = SPECIES.find(s => s.name === 'Osage Orange')!;
+    expect(oo.morPsi).toBe(max);
+  });
+  test('getByCategory returns only hardwoods', () => {
+    const hw = getByCategory('Hardwood');
+    expect(hw.every(s => s.category === 'Hardwood')).toBe(true);
+  });
+  test('getByCategory returns only softwoods', () => {
+    const sw = getByCategory('Softwood');
+    expect(sw.every(s => s.category === 'Softwood')).toBe(true);
+  });
+});
 
 // --- Weight ---
 describe('calcLogWeight', () => {
